@@ -243,6 +243,7 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
   .stats{grid-template-columns:repeat(2,1fr)}
   .nb{padding:6px 10px;font-size:12px}
   .logo-sub,.sync-pill{display:none}
+  .hide-mobile{display:none}
   .fgrid{grid-template-columns:1fr}
   .prof-grid{grid-template-columns:1fr}
 }
@@ -313,6 +314,10 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
         <div class="sdot" id="sdot"></div>
         <span id="slabel">Local</span>
       </div>
+      <button onclick="syncAll()" title="Sincronizar con Sheets"
+        style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;background:var(--surf);color:var(--txt);cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap">
+        🔄 <span class="hide-mobile">Sincronizar</span>
+      </button>
       <select id="sel-sede" onchange="cambiarSede(this.value)"
         style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;background:var(--surf);color:var(--txt);cursor:pointer;outline:none">
         <option value="">— Elegir sede —</option>
