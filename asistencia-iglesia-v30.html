@@ -2289,10 +2289,14 @@ function renderAsist() {
     const p = curAttend[m.id];
     const grupoLabel = grupos.find(g=>g.id===m.grupoId)?.nombre||m.grupo||'';
     const sedeObj    = sedes.find(s=>s.id===m.sedeId);
-    return `<div class="mrow asist-drag-item" data-id="${m.id}" draggable="true"
-      ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)"
-      ontouchstart="onTouchStart(event)" ontouchmove="onTouchMove(event)" ontouchend="onTouchEnd(event)">
-      <div class="drag-handle" title="Arrastrar para reordenar" onclick="event.stopPropagation()">⠿</div>
+    return `<div class="mrow asist-drag-item" data-id="${m.id}"
+      ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)"
+      ontouchmove="onTouchMove(event)" ontouchend="onTouchEnd(event)">
+      <div class="drag-handle" title="Arrastrar para reordenar"
+        draggable="true"
+        ondragstart="onDragStart(event,this.closest('.asist-drag-item'))"
+        ontouchstart="onTouchStart(event,this.closest('.asist-drag-item'))"
+        onclick="event.stopPropagation()">⠿</div>
       <div onclick="openProfile('${m.id}',event)" style="display:contents">
       ${avHTML(m)}
       <div class="minfo">
@@ -2362,9 +2366,11 @@ async function sincronizarAsistencia() {
 // ══════════════════════════════════════════════
 let dragSrcId = null;
 
-function onDragStart(e) {
-  dragSrcId = e.currentTarget.dataset.id;
-  e.currentTarget.classList.add('dragging');
+function onDragStart(e, row) {
+  // row viene del handle → el div padre .asist-drag-item
+  const item = row || e.currentTarget;
+  dragSrcId = item.dataset.id;
+  item.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
 }
 function onDragOver(e) {
@@ -2381,26 +2387,26 @@ function onDrop(e) {
   }
 }
 function onDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  document.querySelectorAll('.asist-drag-item').forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('.asist-drag-item').forEach(el => {
+    el.classList.remove('dragging');
+    el.classList.remove('drag-over');
+  });
   dragSrcId = null;
 }
 
-// Touch drag support — solo se activa desde el handle ⠿
+// Touch drag — solo desde el handle
 let touchDragId = null;
-let touchDragLocked = false; // true si el touch empezó desde el handle
+let touchDragLocked = false;
 
-function onTouchStart(e) {
-  // Solo activar drag si el touch empezó en el handle
-  const handle = e.target.closest('.drag-handle');
-  if (!handle) { touchDragId = null; touchDragLocked = false; return; }
-  touchDragId = e.currentTarget.dataset.id;
+function onTouchStart(e, row) {
+  const item = row || e.currentTarget;
+  touchDragId = item.dataset.id;
   touchDragLocked = true;
-  e.currentTarget.classList.add('dragging');
+  item.classList.add('dragging');
 }
 function onTouchMove(e) {
   if (!touchDragId || !touchDragLocked) return;
-  e.preventDefault(); // evitar scroll solo cuando arrastramos
+  e.preventDefault();
   const t = e.touches[0];
   const el = document.elementFromPoint(t.clientX, t.clientY)?.closest('.asist-drag-item');
   document.querySelectorAll('.asist-drag-item').forEach(x => x.classList.remove('drag-over'));
