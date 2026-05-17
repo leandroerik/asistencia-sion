@@ -1243,7 +1243,7 @@ if (localStorage.getItem(SCRIPT_URL_KEY) === SCRIPT_URL_OLD) localStorage.remove
 let SCRIPT_URL = localStorage.getItem(SCRIPT_URL_KEY) || SCRIPT_URL_DEFAULT;
 
 let members  = JSON.parse(localStorage.getItem('sion_members')  || '[]')
-  .map(m => ({npm install -g http-server
+  .map(m => ({
     ...m,
     photo: (m.photo && typeof m.photo === 'string' &&
             (m.photo.startsWith('http') || m.photo.startsWith('data:')))
