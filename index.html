@@ -712,6 +712,7 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
       <button class="bsm" id="profile-photo-btn" onclick="quickPhotoUpload()" title="Subir o cambiar foto de perfil">📷 Foto</button>
       <input type="file" id="file-foto-profile" accept="image/*" style="display:none" onchange="quickPhotoSave(event)">
       <button class="bsm" onclick="editFromProfile()">✏️ Editar</button>
+      <button class="bsm" id="profile-status-btn" onclick="toggleProfileStatus()" title="Cambiar estado activo/inactivo">— Estado</button>
       <button class="btn btn-p" id="profile-wa-btn">💬 WhatsApp</button>
     </div>
   </div>
@@ -912,9 +913,9 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 
     </div>
 
-    <div class="mftr">
-      <button class="btn btn-o" onclick="editingId=null;currentPhoto=null;closeModal('modal-member')">Cancelar</button>
-      <button class="btn btn-p" onclick="guardarMiembro()" id="btn-save-m">Guardar</button>
+    <div class="mftr" style="position:sticky;top:0;background:var(--surf);border-bottom:1px solid var(--border);z-index:10;gap:8px;justify-content:flex-end">
+      <button class="btn btn-p" onclick="guardarMiembro()" id="btn-save-m" style="margin:0">💾 Guardar</button>
+      <button class="btn btn-o" onclick="editingId=null;currentPhoto=null;closeModal('modal-member')" style="margin:0">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1235,14 +1236,14 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 //  CONFIG & ESTADO
 // ══════════════════════════════════════════════
 const SCRIPT_URL_KEY = 'sion_script_url';
-const SCRIPT_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxVCViOo7tT4txrBvmkup9WqVkCDmjqCQ0xrnmJeM94As4t0B5-pAZqOM_NKXyjqLHv/exec';
-const SCRIPT_URL_OLD     = 'https://script.google.com/macros/s/AKfycbyvUQ2W3x4hrBV21Z_CZcXFesvr0jnhtBHHlZj2NMm5bGXdC-tLQLKo8pVIea8M7znyvA/exec';
+const SCRIPT_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbyq3ZHiTlgcsqyz34YTHQmZGX440lSoI1NpdBerlKsP7SBX5ZYuxaj_cqBIREr6FdVjtw/exec';
+const SCRIPT_URL_OLD     = 'https://script.google.com/macros/s/AKfycbxVCViOo7tT4txrBvmkup9WqVkCDmjqCQ0xrnmJeM94As4t0B5-pAZqOM_NKXyjqLHv/exec';
 // Si quedó guardada la URL vieja, limpiarla para que tome el nuevo default
 if (localStorage.getItem(SCRIPT_URL_KEY) === SCRIPT_URL_OLD) localStorage.removeItem(SCRIPT_URL_KEY);
 let SCRIPT_URL = localStorage.getItem(SCRIPT_URL_KEY) || SCRIPT_URL_DEFAULT;
 
 let members  = JSON.parse(localStorage.getItem('sion_members')  || '[]')
-  .map(m => ({
+  .map(m => ({npm install -g http-server
     ...m,
     photo: (m.photo && typeof m.photo === 'string' &&
             (m.photo.startsWith('http') || m.photo.startsWith('data:')))
@@ -3022,7 +3023,57 @@ function openProfile(id, e) {
   `;
 
   document.getElementById('profile-wa-btn').onclick = () => openWA(m.celular, m.nombre);
+  
+  // Actualizar botón de estado
+  const statusBtn = document.getElementById('profile-status-btn');
+  if (statusBtn) {
+    const isActivo = m.activo === true || m.activo === 'true' || m.activo === 'Sí';
+    statusBtn.textContent = isActivo ? '✅ Activo' : '❌ Inactivo';
+    statusBtn.style.color = isActivo ? 'var(--green-t)' : 'var(--red)';
+    statusBtn.style.borderColor = isActivo ? '#E0EFE2' : '#FBEAEA';
+    statusBtn.style.background = isActivo ? 'var(--green-l)' : 'var(--red-l)';
+  }
+  
   openModal('modal-profile');
+}
+
+function toggleProfileStatus() {
+  const m = members.find(x => String(x.id) === String(profileId));
+  if (!m) return;
+  
+  const nuevoEstado = m.activo === true || m.activo === 'true' || m.activo === 'Sí' ? false : true;
+  m.activo = nuevoEstado;
+  
+  // Actualizar botón inmediatamente
+  const statusBtn = document.getElementById('profile-status-btn');
+  if (statusBtn) {
+    statusBtn.textContent = nuevoEstado ? '✅ Activo' : '❌ Inactivo';
+    statusBtn.style.color = nuevoEstado ? 'var(--green-t)' : 'var(--red)';
+    statusBtn.style.borderColor = nuevoEstado ? '#E0EFE2' : '#FBEAEA';
+    statusBtn.style.background = nuevoEstado ? 'var(--green-l)' : 'var(--red-l)';
+  }
+  
+  // Guardar en backend
+  apiPost({
+    action: 'savePersona',
+    ...m
+  }).then(r => {
+    if (r?.ok) {
+      toast(nuevoEstado ? '✅ Marcado como activo' : '❌ Marcado como inactivo', 'ok', 2000);
+      // Recargar datos
+      loadMembers();
+    } else {
+      toast('❌ Error al actualizar estado', 'err');
+      // Revertir cambio
+      m.activo = !nuevoEstado;
+      if (statusBtn) {
+        statusBtn.textContent = !nuevoEstado ? '✅ Activo' : '❌ Inactivo';
+        statusBtn.style.color = !nuevoEstado ? 'var(--green-t)' : 'var(--red)';
+        statusBtn.style.borderColor = !nuevoEstado ? '#E0EFE2' : '#FBEAEA';
+        statusBtn.style.background = !nuevoEstado ? 'var(--green-l)' : 'var(--red-l)';
+      }
+    }
+  });
 }
 
 function editFromProfile() {

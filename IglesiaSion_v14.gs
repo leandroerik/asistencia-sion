@@ -552,7 +552,7 @@ function doPost(e) {
       const sh = ss.getSheetByName(SH.ASISTENCIA);
       if (!sh) return jsonErr('Hoja Asistencia no encontrada. Corra setup primero.');
       if (sh.getLastRow() > 1) {
-        sh.deleteRows(2, sh.getLastRow() - 1);
+        sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
       }
       return jsonOk({ cleared: true });
     }
