@@ -367,6 +367,11 @@ function doPost(e) {
       return jsonOk({ saved: s.id });
     }
 
+    if (action === 'deleteSession') {
+      deleteById(SH.SESSIONS, body.id);
+      return jsonOk({ deleted: body.id });
+    }
+
     if (action === 'saveSede')  { replaceSheet(SH.SEDES,  HEADERS.SEDES,  body.sedes  || []); return jsonOk({ saved: (body.sedes  ||[]).length }); }
     if (action === 'saveGrupo') { replaceSheet(SH.GRUPOS, HEADERS.GRUPOS, body.grupos || []); return jsonOk({ saved: (body.grupos ||[]).length }); }
     if (action === 'saveTipos') { replaceSheet(SH.TIPOS,  HEADERS.TIPOS,  body.tipos  || []); return jsonOk({ saved: (body.tipos  ||[]).length }); }
