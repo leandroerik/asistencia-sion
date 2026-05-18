@@ -64,6 +64,13 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .sc:hover{box-shadow:var(--shadow-m)}
 .sl{font-size:11px;font-weight:700;color:var(--txt4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
 .sv{font-size:26px;font-weight:800;line-height:1}
+/* ── SONDEO CHIPS ── */
+.snd-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.snd-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surf);font-size:13px;font-weight:600;cursor:pointer;color:var(--txt2);transition:all .15s;line-height:1.4;white-space:nowrap}
+.snd-chip:hover{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
+.snd-chip.active{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
+.snd-chip-call{border-color:#E67E22;color:#E67E22}
+.snd-chip-call:hover,.snd-chip-call.active{border-color:#E67E22;background:#FEF3E7;color:#C96B10}
 
 /* ── PANEL ── */
 .panel{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);padding:18px 22px;margin-bottom:18px;box-shadow:var(--shadow-s)}
@@ -399,17 +406,22 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
         <div style="font-size:26px;font-weight:800;color:var(--green);min-width:52px;text-align:right" id="prog-pct">0%</div>
       </div>
 
-      <!-- TOOLBAR ORDEN + BÚSQUEDA -->
+      <!-- TOOLBAR ASISTENCIA -->
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 13px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:12px;font-weight:700;color:var(--txt3);flex-shrink:0">📋 Orden:</span>
-        <button class="bsm" onclick="guardarOrdenSheets()" title="Guardar orden actual en Sheets y recargar checkboxes">💾 Guardar orden</button>
-        <button class="bsm" onclick="exportarListaAsistencia()" title="Exportar lista con estados">📤 Exportar lista</button>
-        <button class="bsm" onclick="document.getElementById('file-import-lista').click()" title="Importar lista exportada">📥 Importar lista</button>
-        <input type="file" id="file-import-lista" accept=".csv,.txt" style="display:none" onchange="importarListaAsistencia(event)">
-        <button class="bdng" onclick="limpiarAsistenciaSheets()" title="Eliminar todos los datos de la hoja Asistencia en Sheets">🗑 Limpiar Sheets</button>
+        <!-- Primarios -->
+        <button class="btn btn-p" onclick="cargarUltimaReunion()" title="Pre-cargar presentes de la última reunión guardada" style="font-size:13px;padding:7px 14px">📋 Última reunión</button>
+        <button class="btn btn-g" onclick="openAbsentModal()" style="font-size:13px;padding:7px 14px">💬 WA ausentes</button>
+        <!-- Separador -->
+        <div style="width:1px;height:22px;background:var(--border);flex-shrink:0"></div>
+        <!-- Secundarios -->
+        <button class="bsm" onclick="sincronizarAsistencia()" title="Traer estado actual desde Sheets">🔄 Sheets</button>
+        <button class="bsm" onclick="guardarOrdenSheets()" title="Guardar orden actual en Sheets">💾 Guardar orden</button>
+        <!-- Menos importantes -->
         <div style="flex:1"></div>
-        <button class="bsm" onclick="sincronizarAsistencia()" title="Traer estado actual desde Sheets">🔄 Desde Sheets</button>
-        <button class="btn btn-g" onclick="openAbsentModal()">💬 WhatsApp ausentes</button>
+        <button class="bsm" style="color:var(--txt4)" onclick="exportarListaAsistencia()" title="Exportar lista con estados">📤</button>
+        <button class="bsm" style="color:var(--txt4)" onclick="document.getElementById('file-import-lista').click()" title="Importar lista exportada">📥</button>
+        <input type="file" id="file-import-lista" accept=".csv,.txt" style="display:none" onchange="importarListaAsistencia(event)">
+        <button class="bdng" onclick="limpiarAsistenciaSheets()" title="Eliminar todos los datos de la hoja Asistencia en Sheets" style="padding:5px 8px">🗑</button>
       </div>
       <div class="tb" style="margin-bottom:10px">
         <input class="si" type="text" placeholder="🔍 Buscar miembro..." id="search-asist" oninput="renderAsist()">
@@ -465,7 +477,10 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
     <div class="panel">
       <div class="ph">
         <span class="pt">Historial de reuniones</span>
-        <span class="badge-pill" id="hist-badge">0 reuniones</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge-pill" id="hist-badge">0 reuniones</span>
+          <button class="bdng" onclick="vaciarReuniones()" title="Eliminar todas las reuniones de esta sede">🗑 Vaciar todo</button>
+        </div>
       </div>
       <!-- Filtro por tipo de reunión -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
@@ -504,68 +519,64 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
   <!-- ══ SECCIÓN: SONDEO ══ -->
   <div class="sec" id="sec-sondeo">
 
-    <!-- Métricas resumen -->
-    <div class="stats" style="margin-bottom:16px" id="sondeo-stats">
-      <div class="sc"><div class="sl">✅ Regulares</div><div class="sv" style="color:var(--green)" id="snd-regulares">—</div></div>
-      <div class="sc"><div class="sl">⚠️ 1 falta</div><div class="sv" style="color:#976A00" id="snd-alerta">—</div></div>
-      <div class="sc"><div class="sl">🔴 2 faltas</div><div class="sv" style="color:var(--orange)" id="snd-riesgo">—</div></div>
-      <div class="sc"><div class="sl">💀 3+ faltas</div><div class="sv" style="color:var(--red)" id="snd-critico">—</div></div>
+    <!-- Métricas resumen (clickeables como filtros) -->
+    <div class="snd-chips" id="sondeo-stats">
+      <button class="snd-chip" id="chip-regular" onclick="toggleSndEstado('regular')" title="Regulares">✅ <b id="snd-regulares">—</b></button>
+      <button class="snd-chip" id="chip-alerta"  onclick="toggleSndEstado('alerta')"  title="1 falta">⚠️ <b id="snd-alerta">—</b></button>
+      <button class="snd-chip" id="chip-riesgo"  onclick="toggleSndEstado('riesgo')"  title="2 faltas">🔴 <b id="snd-riesgo">—</b></button>
+      <button class="snd-chip" id="chip-critico" onclick="toggleSndEstado('critico')" title="3+ faltas">💀 <b id="snd-critico">—</b></button>
+      <button class="snd-chip snd-chip-call" id="snd-domingo-btn" onclick="toggleAusentesDomingo()" style="display:none">📞 <b id="snd-domingo-count">—</b> ausentes</button>
+    </div>
+
+    <!-- ── Panel: Ausentes último domingo ── -->
+    <div class="panel" id="panel-ausentes-semana" style="margin-bottom:16px;display:none;padding:0">
+      <div class="ph" style="padding:14px 18px 12px;border-bottom:1px solid var(--border-s)">
+        <div>
+          <span class="pt">📞 Ausentes del último domingo</span>
+          <div style="font-size:12px;color:var(--txt3);margin-top:2px" id="ausentes-semana-sub"></div>
+        </div>
+        <span class="badge-pill" id="ausentes-semana-badge">0</span>
+      </div>
+      <div id="lista-ausentes-semana"></div>
     </div>
 
     <!-- Filtros y acciones -->
-    <div class="panel" style="margin-bottom:16px">
-      <!-- Fila 1: Período temporal -->
-      <div style="font-size:11px;font-weight:700;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">📅 Período</div>
-      <div class="snd-pill-group" style="margin-bottom:12px;width:fit-content">
-        <button class="snd-pill on" id="snd-period-btn-all"    onclick="setSndPeriod('all',this)">Todo</button>
-        <button class="snd-pill"   id="snd-period-btn-month"   onclick="setSndPeriod('month',this)">Este mes</button>
-        <button class="snd-pill"   id="snd-period-btn-3months" onclick="setSndPeriod('3months',this)">Últ. 3 meses</button>
-        <button class="snd-pill"   id="snd-period-btn-custom"  onclick="setSndPeriod('custom',this)">Personalizado</button>
+    <div class="panel" style="margin-bottom:16px;padding:10px 14px">
+      <!-- Fila 1: Tipo de reunión + Período -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <div class="snd-pill-group" id="snd-tipo-nav" style="flex-wrap:wrap">
+          <button class="snd-pill on" onclick="setSndTipoReunion('',this)">Todas</button>
+        </div>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
+        <div class="snd-pill-group" style="width:fit-content">
+          <button class="snd-pill"    id="snd-period-btn-all"    onclick="setSndPeriod('all',this)">Todo</button>
+          <button class="snd-pill on" id="snd-period-btn-month"   onclick="setSndPeriod('month',this)">Este mes</button>
+          <button class="snd-pill"    id="snd-period-btn-3months" onclick="setSndPeriod('3months',this)">3 meses</button>
+          <button class="snd-pill"    id="snd-period-btn-custom"  onclick="setSndPeriod('custom',this)">Custom</button>
+        </div>
       </div>
-      <div id="snd-custom-dates" style="display:none;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <div id="snd-custom-dates" style="display:none;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
         <input type="date" class="si" id="snd-fecha-desde" onchange="renderSondeo()" style="width:auto;flex:1;min-width:130px">
-        <span style="font-size:13px;color:var(--txt3);font-weight:600">hasta</span>
+        <span style="font-size:13px;color:var(--txt3);font-weight:600">→</span>
         <input type="date" class="si" id="snd-fecha-hasta" onchange="renderSondeo()" style="width:auto;flex:1;min-width:130px">
       </div>
-
-      <!-- Fila 2: Estado -->
-      <div style="font-size:11px;font-weight:700;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">🔍 Estado de asistencia</div>
-      <div class="snd-pill-group" style="margin-bottom:12px;flex-wrap:wrap">
-        <button class="snd-pill on" onclick="setSndEstado('',this)">Todos</button>
-        <button class="snd-pill est-regular" onclick="setSndEstado('regular',this)">✅ Regular</button>
-        <button class="snd-pill est-alerta"  onclick="setSndEstado('alerta',this)">⚠️ 1 falta</button>
-        <button class="snd-pill est-riesgo"  onclick="setSndEstado('riesgo',this)">🔴 2 faltas</button>
-        <button class="snd-pill est-critico" onclick="setSndEstado('critico',this)">💀 3+ faltas</button>
-      </div>
-
-      <!-- Fila 3: Grupo / Tipo / Seminario / Activo -->
-      <div class="snd-filter-row" style="flex-wrap:wrap">
-        <select class="si" id="snd-filtro-grupo" onchange="renderSondeo()" style="width:auto;flex:1;min-width:130px">
+      <!-- Fila 2: Selectores + acciones -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <select class="si" id="snd-filtro-grupo" onchange="renderSondeo()" style="width:auto;flex:1;min-width:120px;font-size:12px">
           <option value="">Todos los grupos</option>
         </select>
-        <select class="si" id="snd-filtro-tipo" onchange="renderSondeo()" style="width:auto;flex:1;min-width:130px">
+        <select class="si" id="snd-filtro-tipo" onchange="renderSondeo()" style="width:auto;flex:1;min-width:110px;font-size:12px">
           <option value="">Todos los tipos</option>
         </select>
-        <select class="si" id="snd-filtro-seminario" onchange="renderSondeo()" style="width:auto;flex:1;min-width:140px">
-          <option value="">📖 Todos (seminario)</option>
-          <option value="si">📖 Va al seminario</option>
-          <option value="no">— No va al seminario</option>
-        </select>
-        <select class="si" id="snd-filtro-activo" onchange="renderSondeo()" style="width:auto;flex:1;min-width:130px">
-          <option value="">Todos (activo/inactivo)</option>
-          <option value="si">✅ Solo activos</option>
-          <option value="no">❌ Solo inactivos</option>
-        </select>
-        <select class="si" id="snd-ventana" onchange="renderSondeo()" style="width:auto">
-          <option value="4">Últimas 4 reun.</option>
-          <option value="6">Últimas 6 reun.</option>
-          <option value="8">Últimas 8 reun.</option>
-          <option value="12">Últimas 12 reun.</option>
+        <select class="si" id="snd-ventana" onchange="renderSondeo()" style="width:auto;font-size:12px">
+          <option value="4">4 reun.</option>
+          <option value="6">6 reun.</option>
+          <option value="8">8 reun.</option>
+          <option value="12">12 reun.</option>
         </select>
         <div style="flex:1"></div>
-        <button class="bsm" onclick="exportarSondeo()">📋 Exportar</button>
-        <button class="btn btn-p" onclick="publicarSondeo(this)" id="btn-publicar-sondeo">📤 Publicar actividad</button>
-        <button class="btn btn-g" onclick="openWAMasivoModal()">💬 WA masivo</button>
+        <button class="bsm" onclick="exportarSondeo()" style="font-size:12px">📋</button>
+        <button class="btn btn-p" onclick="publicarSondeo(this)" id="btn-publicar-sondeo" style="font-size:12px;padding:6px 12px">📤 Publicar</button>
       </div>
     </div>
 
@@ -729,13 +740,17 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 
 <!-- ══ MODAL: NUEVA/EDITAR PERSONA ══ -->
 <div class="ov" id="modal-member">
-  <div class="modal" style="max-width:560px">
-    <div class="mhdr">
-      <span class="mtit" id="member-modal-title">Nueva persona</span>
+  <div class="modal" style="max-width:560px;padding:0">
+    <div class="mhdr" style="position:sticky;top:0;z-index:10;background:var(--surf);border-radius:var(--rl) var(--rl) 0 0;padding:18px 20px 14px;margin-bottom:0;border-bottom:1px solid var(--border-s)">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+        <span class="mtit" id="member-modal-title">Nueva persona</span>
+        <button type="button" id="btn-activo-form" onclick="toggleActivoFormBtn()"
+          style="flex-shrink:0;padding:4px 13px;border-radius:20px;border:1.5px solid var(--green);background:var(--green-l);color:var(--green-t);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap">✅ Activo</button>
+      </div>
       <button class="mclose" onclick="editingId=null;currentPhoto=null;closeModal('modal-member')">✕</button>
     </div>
 
-    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:0">
+    <div style="padding:16px 24px 8px;display:flex;flex-direction:column;gap:0">
 
       <!-- FOTO -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border-s)">
@@ -804,8 +819,8 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
           </select>
         </div>
         <div class="fg"><label class="fl">Fecha de ingreso</label><input class="fi" id="f-ingreso" type="date"></div>
-        <div class="fg"><label class="fl">Estado</label>
-          <select class="fi" id="f-activo">
+        <div class="fg" style="display:none">
+          <select id="f-activo">
             <option value="true">✅ Activo</option>
             <option value="false">❌ Inactivo</option>
           </select>
@@ -913,9 +928,9 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 
     </div>
 
-    <div class="mftr" style="position:sticky;top:0;background:var(--surf);border-bottom:1px solid var(--border);z-index:10;gap:8px;justify-content:flex-end">
-      <button class="btn btn-p" onclick="guardarMiembro()" id="btn-save-m" style="margin:0">💾 Guardar</button>
+    <div class="mftr" style="position:sticky;bottom:0;background:var(--surf);border-top:1px solid var(--border-s);z-index:10;gap:8px;justify-content:flex-end;margin-top:0;padding:14px 24px 20px;border-radius:0 0 var(--rl) var(--rl)">
       <button class="btn btn-o" onclick="editingId=null;currentPhoto=null;closeModal('modal-member')" style="margin:0">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarMiembro()" id="btn-save-m" style="margin:0">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -924,14 +939,17 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 <div class="ov" id="modal-session">
   <div class="modal">
     <div class="mhdr">
-      <div>
+      <div style="flex:1;min-width:0">
         <div class="mtit" id="sess-modal-title"></div>
         <div style="font-size:12px;color:var(--txt3);margin-top:2px" id="sess-modal-sub"></div>
       </div>
+      <button class="bdng" onclick="eliminarReunion(currentSessId)" style="flex-shrink:0">🗑 Eliminar</button>
       <button class="mclose" onclick="closeModal('modal-session')">✕</button>
     </div>
     <div id="sess-modal-content"></div>
-    <div class="mftr"><button class="btn btn-o" onclick="closeModal('modal-session')">Cerrar</button></div>
+    <div class="mftr">
+      <button class="btn btn-o" onclick="closeModal('modal-session')">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -1187,34 +1205,6 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
   </div>
 </div>
 
-<!-- ══ MODAL: WA MASIVO ══ -->
-<div class="ov" id="modal-wa-masivo">
-  <div class="modal" style="width:500px">
-    <div class="mhdr">
-      <span class="mtit">💬 WhatsApp masivo a ausentes</span>
-      <button class="mclose" onclick="closeModal('modal-wa-masivo')">✕</button>
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--txt3);margin-bottom:6px">DESTINATARIOS</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="wa-chk-alerta" checked> <span style="color:#976A00;font-weight:600">⚠️ 1 falta</span></label>
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="wa-chk-riesgo" checked> <span style="color:var(--orange);font-weight:600">🔴 2 faltas</span></label>
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="wa-chk-critico" checked> <span style="color:var(--red);font-weight:600">💀 3+ faltas</span></label>
-      </div>
-      <div id="wa-masivo-count" style="font-size:13px;color:var(--txt3);margin-bottom:12px"></div>
-    </div>
-    <div class="fg" style="margin-bottom:14px">
-      <label class="fl">Mensaje (usá {nombre} para personalizar)</label>
-      <textarea class="fi" id="wa-masivo-msg" rows="4" style="resize:vertical">Hola {nombre} 👋 Te extrañamos en la reunión. ¿Todo bien? ¡Esperamos verte pronto! 🙏</textarea>
-    </div>
-    <div id="wa-masivo-lista" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:4px"></div>
-    <div class="mftr">
-      <button class="btn btn-o" onclick="closeModal('modal-wa-masivo')">Cancelar</button>
-      <button class="btn btn-g" onclick="enviarWAMasivo()">📤 Enviar a todos</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ MODAL: CUMPLEAÑOS ══ -->
 <div class="ov" id="modal-bday">
   <div class="modal" style="width:520px">
@@ -1304,13 +1294,15 @@ let curGrupoFilter = '';
 let curTipoFilter  = '';
 let histTipoFilter = ''; // filtro tipo reunión en historial
 let editingId = null;
+let currentSessId = null;
 let profileId = null;
 let currentPhoto = null;
 let isSaving = false;
 
 // Sondeo período filter
-let sndPeriod = 'all';  // 'all' | 'month' | '3months' | 'custom'
+let sndPeriod = 'month';  // 'all' | 'month' | '3months' | 'custom'
 let sndEstadoFilter = '';
+let sndTipoReunion  = '';  // '' = todos los tipos
 
 const MEET_TYPES_DEFAULT = [
   { id:'tr_domingo',  label:'Domingo',  icon:'⛪', diaSemana: 0 },
@@ -1431,7 +1423,7 @@ function bdayAge(fechaNac) {
 function getMiembrosConCumplesMes() {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const mesActual = hoy.getMonth() + 1;
-  const sm = sedeMembers();
+  const sm = activeSedeMembers();
 
   return sm
     .map(m => {
@@ -1445,7 +1437,13 @@ function getMiembrosConCumplesMes() {
       return { m, days: paso ? -(hoy - bdayEsteAño) / 86400000 : days, d: p.d, paso };
     })
     .filter(Boolean)
-    .sort((a, b) => a.d - b.d);
+    .sort((a, b) => {
+      const aFut = a.days >= 0, bFut = b.days >= 0;
+      if (aFut && !bFut) return -1;
+      if (!aFut && bFut) return 1;
+      if (aFut && bFut) return a.days - b.days;
+      return b.days - a.days;
+    });
 }
 
 // ══════════════════════════════════════════════
@@ -1460,7 +1458,7 @@ function renderCumpleaños() {
   const hoy    = new Date(); hoy.setHours(0,0,0,0);
   const mesHoy = hoy.getMonth() + 1;
   const diaHoy = hoy.getDate();
-  const sm     = sedeMembers();
+  const sm     = activeSedeMembers();
 
   // Contar por mes para las píldoras
   const contPorMes = Array(13).fill(0);
@@ -1515,7 +1513,10 @@ function renderCumpleaños() {
   delMes.sort((a, b) => {
     if (a.esHoy && !b.esHoy) return -1;
     if (!a.esHoy && b.esHoy) return 1;
-    return a.p.d - b.p.d;
+    if (!a.paso && !b.paso) return a.dias - b.dias;
+    if (a.paso && b.paso) return b.p.d - a.p.d;
+    if (!a.paso) return -1;
+    return 1;
   });
 
   // Métricas
@@ -1699,7 +1700,7 @@ function waBdayMasivo() {
   const hoy    = new Date();
   const mesHoy = hoy.getMonth() + 1;
   const diaHoy = hoy.getDate();
-  const sm     = sedeMembers();
+  const sm     = activeSedeMembers();
   const cumples = sm.map(m => {
     const p = parseFechaNac(m.fechaNac);
     if (!p || p.m !== cumplesMesActivo || !m.celular) return null;
@@ -2068,7 +2069,10 @@ function sedeMembers() {
 
 // Solo miembros activos — para lista de asistencia y guardar reunión
 function activeSedeMembers() {
-  return sedeMembers().filter(m => m.activo !== false && m.activo !== 'false' && m.activo !== 'No');
+  const seen = new Set();
+  return sedeMembers()
+    .filter(m => m.activo !== false && m.activo !== 'false' && m.activo !== 'No')
+    .filter(m => { const sid = String(m.id); if (seen.has(sid)) return false; seen.add(sid); return true; });
 }
 
 function cambiarSede(val) {
@@ -2247,9 +2251,17 @@ function onReunionConfigChange() {
 function getOrdenedMembers() {
   const sm = activeSedeMembers();
   if (!asistOrden.length) return sm;
-  // Ordenar según asistOrden (IDs), los que no están van al final
-  const inOrder = asistOrden.map(id => sm.find(m => String(m.id) === String(id))).filter(Boolean);
-  const notInOrder = sm.filter(m => !asistOrden.includes(String(m.id)));
+  // Map para lookup O(1) y Set para deduplicar — evita dobles si asistOrden
+  // tiene IDs repetidos o si members tiene entradas duplicadas
+  const smById = new Map(sm.map(m => [String(m.id), m]));
+  const seen = new Set();
+  const inOrder = [];
+  for (const id of asistOrden) {
+    const sid = String(id);
+    const m = smById.get(sid);
+    if (m && !seen.has(sid)) { inOrder.push(m); seen.add(sid); }
+  }
+  const notInOrder = sm.filter(m => !seen.has(String(m.id)));
   return [...inOrder, ...notInOrder];
 }
 
@@ -2307,7 +2319,7 @@ function renderAsist() {
       ${avHTML(m)}
       <div class="minfo">
         <div class="mname" style="display:flex;align-items:center;gap:7px">
-          ${m.nombre} ${tipoBadge(m.tipoAsistente)}
+          ${m.nombre} ${tipoBadge(m.tipoAsistente || m.rol)}
         </div>
         <div class="msub" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px">
           ${sedeObj ? `<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:7px;height:7px;border-radius:50%;background:${sedeObj.color};flex-shrink:0;display:inline-block"></span>${sedeObj.nombre}</span>` : ''}
@@ -2347,6 +2359,34 @@ function toggleAsist(id) {
 }
 
 // Sincronizar desde Sheets → traer estado actual de la hoja Asistencia
+function cargarUltimaReunion() {
+  if (!curSede) { toast('⚠️ Seleccioná una sede primero', 'err'); return; }
+
+  const sedeNombre = (sedes.find(x => String(x.id) === String(curSede))?.nombre || '').toLowerCase();
+  const enSede = s => curSede === '__todas__' ||
+    String(s.sedeId||'') === String(curSede) ||
+    (s.sede||'').toLowerCase() === sedeNombre;
+
+  const ultima = sessions
+    .filter(s => enSede(s) && s.fecha)
+    .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''))[0];
+
+  if (!ultima) { toast('📅 No hay reuniones guardadas para esta sede', 'err'); return; }
+
+  const presIds = new Set((ultima.presentes||[]).map(String));
+  const activos = activeSedeMembers();
+  let cargados = 0;
+
+  activos.forEach(m => {
+    const presente = presIds.has(String(m.id));
+    curAttend[m.id] = presente;
+    if (presente) cargados++;
+  });
+
+  renderAsist();
+  toast(`📋 Última reunión (${fmtDate(ultima.fecha)}): ${cargados} presentes cargados`, 'ok', 3500);
+}
+
 async function sincronizarAsistencia() {
   if (!SCRIPT_URL) { toast("⚠️ Configurá la URL del script en ⚙️ Config", "err"); return; }
   toast("⏳ Sincronizando desde Sheets...", "", 2000);
@@ -2650,7 +2690,7 @@ function renderMiembros() {
       <div class="minfo">
         <div class="mname" style="display:flex;align-items:center;gap:7px">
           ${m.nombre}
-          ${tipoBadge(m.tipoAsistente)}
+          ${tipoBadge(m.tipoAsistente || m.rol)}
         </div>
         <div class="msub" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:3px">
           ${sedeNombre(m) ? `<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:7px;height:7px;border-radius:50%;background:${sedeColor(m)};flex-shrink:0;display:inline-block"></span>${sedeNombre(m)}</span>` : ''}
@@ -2713,9 +2753,10 @@ function renderHistorial() {
   el.innerHTML = sedeSessions.map(s => {
     // Calcular todo on-the-fly desde FKs — sin campos derivados en storage
     const sesedeSede = sedes.find(x => String(x.id) === String(s.sedeId||s.sede));
+    const isActivo = m => m.activo !== false && m.activo !== 'false' && m.activo !== 'No';
     const sTotal = sesedeSede
-      ? members.filter(m => String(m.sedeId||'') === String(sesedeSede.id) ||
-          (m.congregacion||'').toLowerCase() === (sesedeSede.nombre||'').toLowerCase()).length
+      ? members.filter(m => isActivo(m) && (String(m.sedeId||'') === String(sesedeSede.id) ||
+          (m.congregacion||'').toLowerCase() === (sesedeSede.nombre||'').toLowerCase())).length
       : (s.presentes?.length || 0);
     const cnt  = s.presentes?.length || 0;
     const pct  = sTotal > 0 ? Math.round(cnt/sTotal*100) : 0;
@@ -2750,15 +2791,56 @@ function renderHistorial() {
   }).join('');
 }
 
+function eliminarReunion(id) {
+  if (!id) return;
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`¿Eliminar la reunión "${s.tipo||'Reunión'}" del ${fmtDate(s.fecha)}?\n\nEsta acción no se puede deshacer.`)) return;
+  sessions = sessions.filter(x => x.id !== id);
+  saveLocal();
+  closeModal('modal-session');
+  renderHistorial();
+  updateStats();
+  toast('🗑 Reunión eliminada', '', 2500);
+  if (SCRIPT_URL) apiPost({ action: 'deleteSession', id });
+}
+
+function vaciarReuniones() {
+  const sedeNombre = sedes.find(x => String(x.id) === String(curSede))?.nombre || curSede;
+  const esTodas = !curSede || curSede === '__todas__';
+  const sedeSessions = sessions.filter(s =>
+    esTodas ||
+    String(s.sedeId||'') === String(curSede) ||
+    (s.sede||'').toLowerCase() === sedeNombre.toLowerCase()
+  );
+  if (!sedeSessions.length) { toast('No hay reuniones para eliminar', '', 2000); return; }
+  const label = esTodas ? 'todas las sedes' : sedeNombre;
+  if (!confirm(`¿Vaciar las ${sedeSessions.length} reuniones de ${label}?\n\nEsta acción no se puede deshacer.`)) return;
+  if (esTodas) {
+    sessions = [];
+  } else {
+    sessions = sessions.filter(s =>
+      String(s.sedeId||'') !== String(curSede) &&
+      (s.sede||'').toLowerCase() !== sedeNombre.toLowerCase()
+    );
+  }
+  saveLocal();
+  renderHistorial();
+  updateStats();
+  toast(`🗑 ${sedeSessions.length} reuniones eliminadas`, '', 3000);
+}
+
 function openSessDetail(sessId) {
+  currentSessId = sessId;
   const s = sessions.find(x=>x.id===sessId);
   if (!s) return;
   // Join FK sedeId → sedes para obtener los miembros de esa reunión
   const sSede = sedes.find(x => String(x.id) === String(s.sedeId||s.sede));
+  const isActivo = m => m.activo !== false && m.activo !== 'false' && m.activo !== 'No';
   const sedeMembs = sSede
-    ? members.filter(m => String(m.sedeId||'') === String(sSede.id) ||
-        (m.congregacion||'').toLowerCase() === (sSede.nombre||'').toLowerCase())
-    : members;
+    ? members.filter(m => isActivo(m) && (String(m.sedeId||'') === String(sSede.id) ||
+        (m.congregacion||'').toLowerCase() === (sSede.nombre||'').toLowerCase()))
+    : members.filter(isActivo);
   const cnt = s.presentes?.length||0;
   const pct = sedeMembs.length > 0 ? Math.round(cnt/sedeMembs.length*100) : 0;
 
@@ -2917,7 +2999,7 @@ function openProfile(id, e) {
       </div>
       <div class="pf-item">
         <div class="pf-label">🏷 Tipo</div>
-        <div class="pf-val">${m.tipoAsistente ? tipoBadge(m.tipoAsistente) : '—'}</div>
+        <div class="pf-val">${(m.tipoAsistente||m.rol) ? tipoBadge(m.tipoAsistente||m.rol) : '—'}</div>
       </div>
       <div class="pf-item">
         <div class="pf-label">⚧ Sexo</div>
@@ -3043,8 +3125,13 @@ function toggleProfileStatus() {
   
   const nuevoEstado = m.activo === true || m.activo === 'true' || m.activo === 'Sí' ? false : true;
   m.activo = nuevoEstado;
-  
-  // Actualizar botón inmediatamente
+
+  // Persistir y refrescar listas inmediatamente (sin esperar al backend)
+  saveLocal();
+  renderAsist();
+  renderMiembros();
+
+  // Actualizar botón del perfil
   const statusBtn = document.getElementById('profile-status-btn');
   if (statusBtn) {
     statusBtn.textContent = nuevoEstado ? '✅ Activo' : '❌ Inactivo';
@@ -3052,28 +3139,15 @@ function toggleProfileStatus() {
     statusBtn.style.borderColor = nuevoEstado ? '#E0EFE2' : '#FBEAEA';
     statusBtn.style.background = nuevoEstado ? 'var(--green-l)' : 'var(--red-l)';
   }
-  
-  // Guardar en backend
-  apiPost({
-    action: 'savePersona',
-    ...m
-  }).then(r => {
-    if (r?.ok) {
-      toast(nuevoEstado ? '✅ Marcado como activo' : '❌ Marcado como inactivo', 'ok', 2000);
-      // Recargar datos
-      loadMembers();
-    } else {
-      toast('❌ Error al actualizar estado', 'err');
-      // Revertir cambio
-      m.activo = !nuevoEstado;
-      if (statusBtn) {
-        statusBtn.textContent = !nuevoEstado ? '✅ Activo' : '❌ Inactivo';
-        statusBtn.style.color = !nuevoEstado ? 'var(--green-t)' : 'var(--red)';
-        statusBtn.style.borderColor = !nuevoEstado ? '#E0EFE2' : '#FBEAEA';
-        statusBtn.style.background = !nuevoEstado ? 'var(--green-l)' : 'var(--red-l)';
-      }
-    }
-  });
+
+  toast(nuevoEstado ? '✅ Marcado como activo' : '❌ Marcado como inactivo', 'ok', 2000);
+
+  // Sincronizar con backend en segundo plano
+  if (SCRIPT_URL) {
+    apiPost({ action: 'savePersona', ...m }).then(r => {
+      if (!r?.ok) toast('⚠️ No se pudo sincronizar con Sheets', 'err', 3000);
+    });
+  }
 }
 
 function editFromProfile() {
@@ -3085,6 +3159,21 @@ function editFromProfile() {
 // ══════════════════════════════════════════════
 //  MODAL MIEMBRO
 // ══════════════════════════════════════════════
+function toggleActivoFormBtn() {
+  const sel = document.getElementById('f-activo');
+  sel.value = sel.value === 'false' ? 'true' : 'false';
+  _refreshActivoFormBtn();
+}
+function _refreshActivoFormBtn() {
+  const btn = document.getElementById('btn-activo-form');
+  if (!btn) return;
+  const activo = document.getElementById('f-activo')?.value !== 'false';
+  btn.textContent = activo ? '✅ Activo' : '❌ Inactivo';
+  btn.style.borderColor = activo ? 'var(--green)' : 'var(--red)';
+  btn.style.background  = activo ? 'var(--green-l)' : 'var(--red-l)';
+  btn.style.color       = activo ? 'var(--green-t)' : 'var(--red)';
+}
+
 function openMemberModal(id=null) {
   editingId = id ? String(id) : null;
   currentPhoto = null;
@@ -3128,6 +3217,7 @@ function openMemberModal(id=null) {
       set('f-tipo',   m.tipoAsistente || m.rol || '');
       set('f-ingreso', m.ingreso);
       set('f-activo',  m.activo === false ? 'false' : 'true');
+      _refreshActivoFormBtn();
       updateGrupoSelect();
       setTimeout(() => set('f-grupo', m.grupoId), 10);
 
@@ -3191,6 +3281,9 @@ function openMemberModal(id=null) {
       ['f-tipo','f-bautizado','f-ministerio','f-activo','f-seminario-estado','f-va-al-seminario'].forEach(f => {
         const el=document.getElementById(f); if(el) el.value = f==='f-activo'?'true':'false';
       });
+      const sedeEl = document.getElementById('f-sede');
+      if (sedeEl && curSede) { sedeEl.value = curSede; updateGrupoSelect(); }
+      _refreshActivoFormBtn();
     }
     document.getElementById('f-nombre').focus();
   }, 30);
@@ -3484,7 +3577,7 @@ function openWA(cel, nombre) {
 }
 
 function openAbsentModal() {
-  const absent = members.filter(m=>!curAttend[m.id]);
+  const absent = getOrdenedMembers().filter(m=>!curAttend[m.id]);
   const el = document.getElementById('absent-list-modal');
   if (!absent.length) {
     el.innerHTML = '<div style="text-align:center;padding:18px;font-size:13px;color:var(--green-t)">🎉 ¡Todos estuvieron presentes!</div>';
@@ -3508,7 +3601,7 @@ function waOne(cel, nombre) {
   window.open('https://wa.me/'+String(cel).replace(/\D/g,'')+'?text='+encodeURIComponent(msg), '_blank');
 }
 function waAll() {
-  members.filter(m=>!curAttend[m.id]).forEach((m,i)=>setTimeout(()=>waOne(m.celular,m.nombre),i*600));
+  getOrdenedMembers().filter(m=>!curAttend[m.id]).forEach((m,i)=>setTimeout(()=>waOne(m.celular,m.nombre),i*600));
 }
 
 // ══════════════════════════════════════════════
@@ -3880,17 +3973,29 @@ function renderTipoChips() {
 
 // Calcula el estado de un miembro según sus faltas consecutivas
 // en las últimas N reuniones de su sede (con soporte de rango de fechas)
-function calcEstado(memberId, ventana, fechaDesde=null, fechaHasta=null) {
+function calcEstado(memberId, ventana, fechaDesde=null, fechaHasta=null, tipoFilter='') {
   const sede = sedes.find(s => String(s.id) === String(curSede))?.nombre || curSede;
   let sesionesDeEstaSede = sessions
     .filter(s => !curSede || curSede === '__todas__' ||
       String(s.sedeId||'') === String(curSede) ||
       (s.sede||'').toLowerCase() === sede.toLowerCase())
-    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+    .sort((a,b) => {
+      if (!b.fecha) return 1;
+      if (!a.fecha) return -1;
+      return b.fecha.localeCompare(a.fecha);
+    });
+
+  // Filtrar por tipo de reunión
+  if (tipoFilter) {
+    sesionesDeEstaSede = sesionesDeEstaSede.filter(s =>
+      (s.tipo||'').toLowerCase() === tipoFilter.toLowerCase()
+    );
+  }
 
   // Aplicar filtro de fechas si corresponde
   if (fechaDesde || fechaHasta) {
     sesionesDeEstaSede = sesionesDeEstaSede.filter(s => {
+      if (!s.fecha) return false;
       const f = new Date(s.fecha+'T12:00:00');
       if (fechaDesde && f < fechaDesde) return false;
       if (fechaHasta && f > fechaHasta) return false;
@@ -3958,18 +4063,135 @@ function fmtDiasDesde(fecha) {
   return `Hace +1 año`;
 }
 
+// ── Toggle panel ausentes del último domingo ──────────────────
+function toggleAusentesDomingo() {
+  const panel = document.getElementById('panel-ausentes-semana');
+  const btn   = document.getElementById('snd-domingo-btn');
+  if (!panel) return;
+  const abierto = panel.style.display !== 'none';
+  panel.style.display = abierto ? 'none' : '';
+  if (btn) btn.style.outline = abierto ? '' : '2px solid var(--orange)';
+}
+
+// ── Ausentes del último domingo ───────────────────────────────
+function renderAusentesEstaSemana() {
+  const el = document.getElementById('panel-ausentes-semana');
+  if (!el) return;
+  if (!curSede) { el.style.display = 'none'; return; }
+
+  const sedeNombre = (sedes.find(x => String(x.id) === String(curSede))?.nombre || curSede || '').toLowerCase();
+  const enSede = s => curSede === '__todas__' ||
+    String(s.sedeId||'') === String(curSede) ||
+    (s.sede||'').toLowerCase() === sedeNombre ||
+    (s.id||'').toLowerCase().includes(sedeNombre.replace(/\s/g,'_'));
+
+  // Extrae YYYY-MM-DD de una sesión (campo fecha o ID), normalizando separadores
+  const sesionFecha = s => {
+    const raw = s.fecha || (s.id||'').match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || '';
+    const m = String(raw).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (!m) return '';
+    return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  };
+
+  // Última sesión de tipo Domingo guardada para esta sede
+  const ultimoDomingo = sessions
+    .filter(s => {
+      const f = sesionFecha(s);
+      const esDomingo = (s.tipo||'').toLowerCase().includes('domingo') ||
+                        (s.id||'').toLowerCase().includes('_domingo');
+      return f && esDomingo && enSede(s);
+    })
+    .sort((a, b) => sesionFecha(b).localeCompare(sesionFecha(a)))[0];
+
+  const btn = document.getElementById('snd-domingo-btn');
+  const cntEl = document.getElementById('snd-domingo-count');
+
+  if (!ultimoDomingo) {
+    el.style.display = 'none';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+
+  const activos = activeSedeMembers();
+  const presIds = new Set((ultimoDomingo.presentes||[]).map(String));
+
+  const hoy = new Date();
+  const hoyStr = hoy.toISOString().slice(0,10);
+  const inicioMesStr = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+  const sesionesMes = sessions.filter(s => s.fecha && s.fecha >= inicioMesStr && s.fecha <= hoyStr && enSede(s));
+
+  const ausentes = activos
+    .filter(m => !presIds.has(String(m.id)))
+    .map(m => {
+      const id = String(m.id);
+      const faltasMes = sesionesMes.filter(s => !(s.presentes||[]).map(String).includes(id)).length;
+      const est = calcEstado(id, 8);
+      return { m, faltasMes, totalMes: sesionesMes.length, faltasConsec: est.faltas, ultimaVez: est.ultimaVez };
+    });
+
+  ausentes.sort((a, b) =>
+    b.faltasConsec - a.faltasConsec ||
+    b.faltasMes - a.faltasMes ||
+    a.m.nombre.localeCompare(b.m.nombre)
+  );
+
+  // Mostrar botón con el conteo; el panel queda cerrado hasta que el usuario lo abra
+  if (btn) { btn.style.display = ''; }
+  if (cntEl) cntEl.textContent = ausentes.length;
+
+  const fRaw = sesionFecha(ultimoDomingo);
+  const fechaLabel = fRaw
+    ? new Date(fRaw + 'T12:00:00').toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' })
+    : 'Fecha desconocida';
+  document.getElementById('ausentes-semana-badge').textContent = ausentes.length + (ausentes.length === 1 ? ' persona' : ' personas');
+  document.getElementById('ausentes-semana-sub').textContent = fechaLabel;
+
+  if (!ausentes.length) {
+    document.getElementById('lista-ausentes-semana').innerHTML =
+      '<div style="padding:14px 18px;font-size:13px;color:var(--green-t);font-weight:600">✅ ¡Todos vinieron el último domingo!</div>';
+    return;
+  }
+
+  document.getElementById('lista-ausentes-semana').innerHTML = ausentes.map(d => {
+    const m = d.m;
+    const colF = d.faltasConsec >= 3 ? 'var(--red)' : d.faltasConsec === 2 ? 'var(--orange)' : '#976A00';
+    const bgF  = d.faltasConsec >= 3 ? 'var(--red-l)' : d.faltasConsec === 2 ? 'var(--orange-l)' : '#FEF9E7';
+    const grupoLabel = grupos.find(g => String(g.id) === String(m.grupoId||''))?.nombre || m.grupo || '';
+
+    return `<div onclick="openFicha('${m.id}')" style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:0.5px solid var(--border-s);cursor:pointer;transition:background .1s" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      ${avHTML(m, 40)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${m.nombre} ${tipoBadge(m.tipoAsistente||m.rol)}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:2px">${grupoLabel}</div>
+      </div>
+      ${d.faltasConsec > 0 ? `
+      <div style="text-align:center;min-width:72px">
+        <div style="font-size:10px;color:var(--txt3);margin-bottom:3px">Faltas seguidas</div>
+        <div style="font-size:14px;font-weight:800;color:${colF};background:${bgF};padding:3px 9px;border-radius:6px;display:inline-block">${d.faltasConsec}</div>
+      </div>` : '<div style="min-width:72px"></div>'}
+      <div style="text-align:center;min-width:68px">
+        <div style="font-size:10px;color:var(--txt3);margin-bottom:3px">Última vez</div>
+        <div style="font-size:12px;font-weight:600;color:${d.ultimaVez ? 'var(--txt)' : 'var(--txt4)'}">${fmtDiasDesde(d.ultimaVez)}</div>
+      </div>
+      ${m.celular
+        ? `<div onclick="event.stopPropagation();waDirecto('${m.celular}','${m.nombre.replace(/'/g,"\\'")}');" style="cursor:pointer;font-size:20px;flex-shrink:0" title="WhatsApp">📱</div>`
+        : `<div style="width:24px"></div>`}
+    </div>`;
+  }).join('');
+}
+
 // ── Render principal del sondeo ────────────────────────────────
 function renderSondeo() {
+  try { renderAusentesEstaSemana(); } catch(e) { console.warn('renderAusentesEstaSemana:', e); }
+
   if (!curSede) {
     document.getElementById('lista-sondeo').innerHTML = '<div class="empty" style="padding:2rem">Seleccioná una sede para ver la actividad.</div>';
     return;
   }
 
   const ventana         = parseInt(document.getElementById('snd-ventana').value) || 4;
-  const filtroGrp       = document.getElementById('snd-filtro-grupo').value;
-  const filtroTipo      = document.getElementById('snd-filtro-tipo').value;
-  const filtroSeminario = document.getElementById('snd-filtro-seminario')?.value || '';
-  const filtroActivo    = document.getElementById('snd-filtro-activo')?.value || '';
+  const filtroGrp  = document.getElementById('snd-filtro-grupo').value;
+  const filtroTipo = document.getElementById('snd-filtro-tipo').value;
 
   // Calcular rango de fechas según período
   let fechaDesde = null, fechaHasta = null;
@@ -3996,25 +4218,43 @@ function renderSondeo() {
     gruposDeSede.map(g=>`<option value="${g.id}">${g.nombre}</option>`).join('');
   selGrp.value = curGrpVal;
 
-  const sm = sedeMembers();
-  const datos = sm.filter(m => m && m.id && m.nombre).map(m => ({ m, ...calcEstado(m.id, ventana, fechaDesde, fechaHasta) }));
+  // Botones dinámicos de tipo de reunión
+  const sedeNombreR = (sede?.nombre || curSede || '').toLowerCase();
+  const enSedeR = s => curSede === '__todas__' ||
+    String(s.sedeId||'') === String(curSede) ||
+    (s.sede||'').toLowerCase() === sedeNombreR;
+  const tiposDisp = [...new Set(sessions.filter(enSedeR).map(s => s.tipo).filter(Boolean))].sort();
+  const tipoNavEl = document.getElementById('snd-tipo-nav');
+  if (tipoNavEl) {
+    tipoNavEl.innerHTML =
+      `<button class="snd-pill${!sndTipoReunion?' on':''}" onclick="setSndTipoReunion('',this)">Todas</button>` +
+      tiposDisp.map(t =>
+        `<button class="snd-pill${sndTipoReunion===t?' on':''}" onclick="setSndTipoReunion('${t.replace(/'/g,"\\'")}',this)">${t}</button>`
+      ).join('');
+  }
 
-  // Métricas (sin filtrar por estado/grupo/tipo para el resumen)
+  const sm = activeSedeMembers();
+  const datos = sm.filter(m => m && m.id && m.nombre).map(m => ({ m, ...calcEstado(m.id, ventana, fechaDesde, fechaHasta, sndTipoReunion) }));
+
+  // Métricas — actualizan las tarjetas y reflejan el filtro de tipo activo
   const cnt = e => datos.filter(d => d.estado === e).length;
-  document.getElementById('snd-regulares').textContent = cnt('regular');
-  document.getElementById('snd-alerta').textContent    = cnt('alerta');
-  document.getElementById('snd-riesgo').textContent    = cnt('riesgo');
-  document.getElementById('snd-critico').textContent   = cnt('critico');
+  const updCard = (id, estado, chipId) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = cnt(estado);
+    const chip = document.getElementById(chipId);
+    if (chip) chip.classList.toggle('active', sndEstadoFilter === estado);
+  };
+  updCard('snd-regulares','regular','chip-regular');
+  updCard('snd-alerta','alerta','chip-alerta');
+  updCard('snd-riesgo','riesgo','chip-riesgo');
+  updCard('snd-critico','critico','chip-critico');
 
   // Filtros
   let filtrados = datos;
   if (sndEstadoFilter) filtrados = filtrados.filter(d => d.estado === sndEstadoFilter);
-  if (filtroGrp)       filtrados = filtrados.filter(d => String(d.m.grupoId||'') === String(filtroGrp) || d.m.grupo === filtroGrp);
-  if (filtroTipo)      filtrados = filtrados.filter(d => (d.m.tipoAsistente||d.m.rol||'') === filtroTipo);
-  if (filtroSeminario === 'si') filtrados = filtrados.filter(d => d.m.vaAlSeminario === true || d.m.vaAlSeminario === 'Sí');
-  if (filtroSeminario === 'no') filtrados = filtrados.filter(d => !d.m.vaAlSeminario || d.m.vaAlSeminario === false || d.m.vaAlSeminario === 'No');
-  if (filtroActivo === 'si')    filtrados = filtrados.filter(d => d.m.activo === true || d.m.activo === 'Sí');
-  if (filtroActivo === 'no')    filtrados = filtrados.filter(d => d.m.activo === false || d.m.activo === 'No');
+  if (filtroGrp)  filtrados = filtrados.filter(d => String(d.m.grupoId||'') === String(filtroGrp) || d.m.grupo === filtroGrp);
+  if (filtroTipo) filtrados = filtrados.filter(d => (d.m.tipoAsistente||d.m.rol||'') === filtroTipo);
 
   // Ordenar: críticos primero, luego por faltas desc, luego por nombre
   filtrados.sort((a,b) => {
@@ -4024,7 +4264,7 @@ function renderSondeo() {
   });
 
   if (!filtrados.length) {
-    document.getElementById('lista-sondeo').innerHTML = '<div class="empty" style="padding:2rem">No hay personas con ese filtro.<//div>';
+    document.getElementById('lista-sondeo').innerHTML = '<div class="empty" style="padding:2rem">No hay personas con ese filtro.</div>';
     return;
   }
 
@@ -4044,7 +4284,7 @@ function renderSondeo() {
       <!-- Nombre + contactos -->
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${m.nombre} ${tipoBadge(m.tipoAsistente)}
+          ${m.nombre} ${tipoBadge(m.tipoAsistente||m.rol)}
         </div>
         <div style="font-size:11px;color:var(--txt3);margin-top:3px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
           ${(() => { const sd = sedes.find(s=>String(s.id)===String(m.sedeId||'')); return sd ? `<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:7px;height:7px;border-radius:50%;background:${sd.color||'var(--blue)'};display:inline-block"></span><strong>${sd.nombre}</strong></span> ·` : ''; })()}
@@ -4076,20 +4316,30 @@ function renderSondeo() {
   }).join('');
 }
 
-// ── Funciones de filtro período/estado ────────────────────────
+// ── Funciones de filtro período/estado/tipo ───────────────────
 function setSndPeriod(period, btn) {
   sndPeriod = period;
   document.querySelectorAll('[id^="snd-period-btn-"]').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
-  const customDates = document.getElementById('snd-custom-dates');
-  customDates.style.display = period === 'custom' ? 'flex' : 'none';
+  document.getElementById('snd-custom-dates').style.display = period === 'custom' ? 'flex' : 'none';
   renderSondeo();
 }
 
+function toggleSndEstado(estado) {
+  sndEstadoFilter = sndEstadoFilter === estado ? '' : estado;
+  renderSondeo();
+}
+
+function setSndTipoReunion(tipo, btn) {
+  sndTipoReunion = tipo;
+  btn.closest('#snd-tipo-nav').querySelectorAll('.snd-pill').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderSondeo();
+}
+
+// mantener compatibilidad con cualquier referencia vieja
 function setSndEstado(estado, btn) {
   sndEstadoFilter = estado;
-  btn.closest('.snd-pill-group').querySelectorAll('.snd-pill').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
   renderSondeo();
 }
 
@@ -4195,55 +4445,6 @@ function waDirecto(cel, nombre) {
   window.open('https://wa.me/'+String(cel).replace(/\D/g,'')+'?text='+encodeURIComponent(msg), '_blank');
 }
 
-function openWAMasivoModal() {
-  const ventana = parseInt(document.getElementById('snd-ventana').value) || 4;
-  const sm = sedeMembers();
-  const todos = sm.map(m => ({ m, ...calcEstado(m.id, ventana) }));
-
-  function updateWACount() {
-    const chkA = document.getElementById('wa-chk-alerta').checked;
-    const chkR = document.getElementById('wa-chk-riesgo').checked;
-    const chkC = document.getElementById('wa-chk-critico').checked;
-    const dest = todos.filter(d =>
-      (chkA && d.estado==='alerta') ||
-      (chkR && d.estado==='riesgo') ||
-      (chkC && d.estado==='critico')
-    );
-    const conWA = dest.filter(d => d.m.celular);
-    document.getElementById('wa-masivo-count').innerHTML =
-      `<strong>${dest.length}</strong> seleccionados · <strong style="color:var(--wa)">${conWA.length}</strong> con WhatsApp · <span style="color:var(--txt3)">${dest.length-conWA.length} sin número</span>`;
-    document.getElementById('wa-masivo-lista').innerHTML = dest.map(d =>
-      `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-s)">
-        ${avHTML(d.m, 32)}
-        <div style="flex:1;font-size:13px;font-weight:600">${d.m.nombre}</div>
-        <span style="font-size:11px;font-weight:700;color:${ESTADO_CFG[d.estado].txt}">${ESTADO_CFG[d.estado].icon} ${ESTADO_CFG[d.estado].label}</span>
-        ${d.m.celular?'<span style="font-size:11px;color:var(--wa)">📱</span>':'<span style="font-size:11px;color:var(--txt4)">Sin WA</span>'}
-      </div>`
-    ).join('');
-    return dest;
-  }
-
-  document.getElementById('wa-chk-alerta').onchange  = updateWACount;
-  document.getElementById('wa-chk-riesgo').onchange  = updateWACount;
-  document.getElementById('wa-chk-critico').onchange = updateWACount;
-  window._waDestinos = updateWACount;
-  updateWACount();
-  openModal('modal-wa-masivo');
-}
-
-function enviarWAMasivo() {
-  const msg = document.getElementById('wa-masivo-msg').value;
-  const dest = window._waDestinos ? window._waDestinos() : [];
-  const conWA = dest.filter(d => d.m.celular);
-  if (!conWA.length) { toast('⚠️ Ningún destinatario tiene WhatsApp','err'); return; }
-  conWA.forEach((d, i) => {
-    setTimeout(() => {
-      const texto = msg.replace(/{nombre}/g, d.m.nombre.split(' ')[0]);
-      window.open(`https://wa.me/${d.m.celular}?text=${encodeURIComponent(texto)}`, '_blank');
-    }, i * 700);
-  });
-  toast(`📤 Abriendo ${conWA.length} chats de WhatsApp...`,'ok', 4000);
-}
 
 // ── Exportar sondeo ────────────────────────────────────────────
 function exportarSondeo() {
@@ -4279,14 +4480,12 @@ async function publicarSondeo(btn) {
   if (!SCRIPT_URL) { toast('⚠️ Configurá la URL del script en ⚙️ Config','err'); return; }
 
   const ventana         = parseInt(document.getElementById('snd-ventana')?.value) || 4;
-  const filtroEst       = document.getElementById('snd-filtro-estado')?.value || '';
-  const filtroGrp       = document.getElementById('snd-filtro-grupo')?.value || '';
-  const filtroSeminario = document.getElementById('snd-filtro-seminario')?.value || '';
-  const filtroActivo    = document.getElementById('snd-filtro-activo')?.value || '';
+  const filtroEst = document.getElementById('snd-filtro-estado')?.value || '';
+  const filtroGrp = document.getElementById('snd-filtro-grupo')?.value || '';
   const fechaDesde      = document.getElementById('snd-fecha-desde')?.value || null;
   const fechaHasta      = document.getElementById('snd-fecha-hasta')?.value || null;
 
-  const sm    = sedeMembers();
+  const sm    = activeSedeMembers();
   const todos = sm.map(m => ({ m, ...calcEstado(m.id, ventana,
     fechaDesde ? new Date(fechaDesde+'T00:00:00') : null,
     fechaHasta ? new Date(fechaHasta+'T23:59:59') : null
@@ -4296,10 +4495,6 @@ async function publicarSondeo(btn) {
   let datos = todos;
   if (filtroEst) datos = datos.filter(d => d.estado === filtroEst);
   if (filtroGrp) datos = datos.filter(d => String(d.m.grupoId||'') === String(filtroGrp) || d.m.grupo === filtroGrp);
-  if (filtroSeminario === 'si') datos = datos.filter(d => d.m.vaAlSeminario === true || d.m.vaAlSeminario === 'Sí');
-  if (filtroSeminario === 'no') datos = datos.filter(d => !d.m.vaAlSeminario || d.m.vaAlSeminario === false || d.m.vaAlSeminario === 'No');
-  if (filtroActivo === 'si')    datos = datos.filter(d => d.m.activo === true || d.m.activo === 'Sí');
-  if (filtroActivo === 'no')    datos = datos.filter(d => d.m.activo === false || d.m.activo === 'No');
   datos.sort((a,b) => { const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado]; });
 
   // Estadísticas resumen
@@ -4983,7 +5178,7 @@ function showImportPreview(filename, filtroGrupo) {
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">
           ${m.nombre}
-          ${tipoBadge(m.tipoAsistente)}
+          ${tipoBadge(m.tipoAsistente||m.rol)}
           ${m._isDup?'<span style="font-size:10px;background:var(--orange-l);color:var(--orange);padding:1px 6px;border-radius:4px;font-weight:700">ya existe</span>':''}
         </div>
         <div style="font-size:11px;color:var(--txt3);display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px">
