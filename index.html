@@ -3532,14 +3532,24 @@ async function quickPhotoSave(e) {
 // ══════════════════════════════════════════════
 const MSG_DEFAULTS = {
   ausente:     'Hola {nombre}! 😊 Te extrañamos en la reunión de hoy. Esperamos verte pronto. ¡Dios te bendiga! 🙏',
-  cumple:      '¡Hola {nombre}! 🎂🎉 Te deseamos un muy feliz cumpleaños. ¡Que el Señor te bendiga hoy y siempre! ✨ — Iglesia Sion',
-  seguimiento: 'Hola {nombre}! 👋 Pasamos a saludarte y ver cómo estás. ¡Dios te bendiga! 🙏 — Iglesia Sion',
+  cumple:      '¡Hola {nombre}! 🎂🎉 Te deseamos un muy feliz cumpleaños. ¡Que el Señor te bendiga hoy y siempre! ✨ - Iglesia Sion',
+  seguimiento: 'Hola {nombre}! 👋 Pasamos a saludarte y ver cómo estás. ¡Dios te bendiga! 🙏 - Iglesia Sion',
   bienvenida:  '¡Hola {nombre}! 😊 Qué alegría tenerte en Iglesia Sion. ¡Bienvenido/a! 🙌',
 };
-let mensajes = JSON.parse(localStorage.getItem('sion_mensajes') || 'null') || { ...MSG_DEFAULTS };
+let mensajes = (() => {
+  try {
+    if (localStorage.getItem('sion_mensajes_ver') !== 'v2') {
+      localStorage.removeItem('sion_mensajes');
+      localStorage.setItem('sion_mensajes_ver', 'v2');
+      return { ...MSG_DEFAULTS };
+    }
+    return { ...MSG_DEFAULTS, ...JSON.parse(localStorage.getItem('sion_mensajes') || '{}') };
+  } catch(e) { return { ...MSG_DEFAULTS }; }
+})();
 
 function saveMensajesLocal() {
   localStorage.setItem('sion_mensajes', JSON.stringify(mensajes));
+  localStorage.setItem('sion_mensajes_ver', 'v2');
 }
 function getMensaje(key, nombre) {
   const tpl = mensajes[key] || MSG_DEFAULTS[key] || '';
