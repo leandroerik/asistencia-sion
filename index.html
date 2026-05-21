@@ -962,7 +962,7 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
     </div>
     <div class="fg" style="margin-bottom:14px">
       <label class="fl">Mensaje (usá {nombre} para personalizar)</label>
-      <textarea class="fi" id="wa-msg" rows="3" style="resize:vertical">Hola {nombre}! 😊 Te extrañamos en la reunión de hoy. Esperamos verte pronto. ¡Dios te bendiga! 🙏</textarea>
+      <textarea class="fi" id="wa-msg" rows="3" style="resize:vertical"></textarea>
     </div>
     <div id="absent-list-modal"></div>
     <div class="mftr">
@@ -2019,7 +2019,13 @@ async function syncAll() {
     localStorage.setItem('sion_tipos_reunion', JSON.stringify(tiposReunion));
     renderMeetTypes();
   }
-  if (msgr?.mensajes) { mensajes = { ...MSG_DEFAULTS, ...msgr.mensajes }; saveMensajesLocal(); }
+  if (msgr?.mensajes) {
+    Object.keys(MSG_DEFAULTS).forEach(k => {
+      const v = msgr.mensajes[k];
+      if (!esCorrupto(v)) mensajes[k] = v;
+    });
+    saveMensajesLocal();
+  }
 
   // Pre-cargar estado + orden de asistencia desde hoja Asistencia de Sheets (bidireccional)
   if (ordenr?.orden && Array.isArray(ordenr.orden) && ordenr.orden.length) {
@@ -3538,21 +3544,25 @@ const MSG_DEFAULTS = {
 };
 let mensajes = (() => {
   try {
-    if (localStorage.getItem('sion_mensajes_ver') !== 'v2') {
-      localStorage.removeItem('sion_mensajes');
-      localStorage.setItem('sion_mensajes_ver', 'v2');
-      return { ...MSG_DEFAULTS };
+    if (localStorage.getItem('sion_mensajes_ver') === 'v3') {
+      const stored = JSON.parse(localStorage.getItem('sion_mensajes') || '{}');
+      return { ...MSG_DEFAULTS, ...stored };
     }
-    return { ...MSG_DEFAULTS, ...JSON.parse(localStorage.getItem('sion_mensajes') || '{}') };
+    localStorage.removeItem('sion_mensajes');
+    localStorage.setItem('sion_mensajes_ver', 'v3');
+    return { ...MSG_DEFAULTS };
   } catch(e) { return { ...MSG_DEFAULTS }; }
 })();
 
+function esCorrupto(s) { return !s || !s.trim() || s.includes('�'); }
+
 function saveMensajesLocal() {
   localStorage.setItem('sion_mensajes', JSON.stringify(mensajes));
-  localStorage.setItem('sion_mensajes_ver', 'v2');
+  localStorage.setItem('sion_mensajes_ver', 'v3');
 }
 function getMensaje(key, nombre) {
-  const tpl = mensajes[key] || MSG_DEFAULTS[key] || '';
+  const stored = mensajes[key] || '';
+  const tpl = (!esCorrupto(stored)) ? stored : MSG_DEFAULTS[key] || '';
   return tpl.replace(/{nombre}/g, (nombre||'').split(' ')[0]);
 }
 function cargarMensajesEnForm() {
@@ -3587,6 +3597,8 @@ function openWA(cel, nombre) {
 }
 
 function openAbsentModal() {
+  const tplEl = document.getElementById('wa-msg');
+  if (tplEl && !tplEl.value) tplEl.value = mensajes.ausente || MSG_DEFAULTS.ausente;
   const absent = getOrdenedMembers().filter(m=>!curAttend[m.id]);
   const el = document.getElementById('absent-list-modal');
   if (!absent.length) {
@@ -3606,8 +3618,9 @@ function openAbsentModal() {
 }
 
 function waOne(cel, nombre) {
-  const tpl = document.getElementById('wa-msg')?.value || mensajes.ausente || MSG_DEFAULTS.ausente;
-  const msg  = tpl.replace(/{nombre}/g, (nombre||'').split(' ')[0]);
+  const v = document.getElementById('wa-msg')?.value?.trim() || '';
+  const tpl = (!esCorrupto(v)) ? v : getMensaje('ausente', nombre);
+  const msg = tpl.replace(/{nombre}/g, (nombre||'').split(' ')[0]);
   window.open('https://wa.me/'+String(cel).replace(/\D/g,'')+'?text='+encodeURIComponent(msg), '_blank');
 }
 function waAll() {
