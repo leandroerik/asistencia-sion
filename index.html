@@ -49,6 +49,9 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .sdot.spin{background:var(--orange);animation:blink .8s infinite}
 .sdot.err{background:var(--red)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes rot{to{transform:rotate(360deg)}}
+.est-tab{flex:1;padding:7px 10px;border:none;border-radius:7px;background:transparent;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--txt3);transition:all .15s}
+.est-tab.on{background:var(--surf);color:var(--blue);box-shadow:var(--shadow-s)}
 .nav{display:flex;gap:3px;flex-wrap:wrap}
 .nb{padding:7px 15px;border:1px solid transparent;border-radius:8px;background:transparent;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--txt3);transition:all .15s}
 .nb.on{background:var(--blue-l);color:var(--blue);border-color:#BDD5F5}
@@ -338,11 +341,13 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
     <button class="nb" onclick="goSec('miembros',this)">👥 Personas</button>
     <button class="nb" onclick="goSec('cumples',this)">🎂 Cumpleaños</button>
     <button class="nb" onclick="goSec('sondeo',this)">📊 Actividad</button>
+    <button class="nb" onclick="goSec('estadisticas',this)">📈 Estadísticas</button>
     <button class="nb" onclick="goSec('config',this)">⚙️ Config</button>
   </div>
 </div>
 
 <div class="toasts" id="toasts"></div>
+
 
 <div class="page">
 
@@ -583,6 +588,91 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
     <!-- Lista de miembros con sondeo -->
     <div class="panel" style="padding:0">
       <div id="lista-sondeo"><div class="empty" style="padding:2rem">Seleccioná una sede para ver la actividad.</div></div>
+    </div>
+
+  </div>
+
+  <!-- ══ SECCIÓN: ESTADÍSTICAS ══ -->
+  <div class="sec" id="sec-estadisticas">
+
+    <!-- Resumen siempre visible -->
+    <div class="stats" id="est-summary" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px;display:none"></div>
+
+    <!-- Sub-tabs + contenido -->
+    <div id="est-charts" style="display:none">
+
+      <!-- Nav de sub-tabs -->
+      <div style="display:flex;gap:3px;margin-bottom:16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:4px">
+        <button class="est-tab on" id="esttab-personas"    onclick="goEstTab('personas',this)"   >👥 Personas</button>
+        <button class="est-tab"    id="esttab-asistencia"  onclick="goEstTab('asistencia',this)" >📅 Asistencia</button>
+        <button class="est-tab"    id="esttab-seguimiento" onclick="goEstTab('seguimiento',this)">⚠️ Seguimiento</button>
+      </div>
+
+      <!-- TAB: Personas -->
+      <div id="estsec-personas">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+          <div class="panel"><div class="ph"><span class="pt">👥 Género</span></div><div id="est-genero"></div></div>
+          <div class="panel"><div class="ph"><span class="pt">🏷 Tipo de asistente</span></div><div id="est-tipo"></div></div>
+          <div class="panel"><div class="ph"><span class="pt">🎂 Rangos de edad</span></div><div id="est-edad"></div></div>
+          <div class="panel"><div class="ph"><span class="pt">✝️ Bautismo</span></div><div id="est-bautismo"></div></div>
+          <div class="panel"><div class="ph"><span class="pt">💑 Estado civil</span></div><div id="est-civil"></div></div>
+          <div class="panel"><div class="ph"><span class="pt">🎓 Seminario</span></div><div id="est-seminario"></div></div>
+        </div>
+      </div>
+
+      <!-- TAB: Asistencia -->
+      <div id="estsec-asistencia" style="display:none">
+        <div class="panel">
+          <div class="ph">
+            <span class="pt">📅 Asistencia por reunión</span>
+            <span id="est-asist-avg" style="font-size:12.5px;color:var(--txt3)"></span>
+          </div>
+          <div id="est-asist-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+          <div id="est-asist-list"></div>
+        </div>
+      </div>
+
+      <!-- TAB: Seguimiento -->
+      <div id="estsec-seguimiento" style="display:none">
+
+        <!-- Filtro de tipo de reunión -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:12px;font-weight:700;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px">Últimas <span id="est-ausentes-sub">4</span> reuniones</span>
+          <div id="est-ausentes-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+
+        <!-- Dropdown 1: Sin asistir -->
+        <div class="panel" style="margin-bottom:12px">
+          <div class="ph" style="cursor:pointer;user-select:none;margin-bottom:0;border-bottom:none;padding-bottom:0" onclick="toggleSeg('nunca')">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0"></span>
+              <span class="pt" style="font-size:14px">Sin asistir</span>
+              <span id="seg-nunca-badge" style="font-size:12px;font-weight:700;color:var(--red);background:var(--red-l);padding:2px 9px;border-radius:20px;display:none"></span>
+            </div>
+            <span id="seg-nunca-arrow" style="color:var(--txt4);font-size:12px;transition:transform .2s">▼</span>
+          </div>
+          <div id="seg-nunca-body" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-s)">
+            <div id="seg-nunca-list"></div>
+          </div>
+        </div>
+
+        <!-- Dropdown 2: Asistencia irregular -->
+        <div class="panel">
+          <div class="ph" style="cursor:pointer;user-select:none;margin-bottom:0;border-bottom:none;padding-bottom:0" onclick="toggleSeg('irregular')">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:10px;height:10px;border-radius:50%;background:var(--orange);flex-shrink:0"></span>
+              <span class="pt" style="font-size:14px">Asistencia irregular</span>
+              <span id="seg-irregular-badge" style="font-size:12px;font-weight:700;color:var(--orange);background:var(--orange-l);padding:2px 9px;border-radius:20px;display:none"></span>
+            </div>
+            <span id="seg-irregular-arrow" style="color:var(--txt4);font-size:12px;transition:transform .2s">▼</span>
+          </div>
+          <div id="seg-irregular-body" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-s)">
+            <div id="seg-irregular-list"></div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
   </div>
@@ -2043,6 +2133,7 @@ async function syncAll() {
   }
 
   refreshSedeSelects();
+  window._syncing = false;
   renderAll();
 
   // Re-aplicar la sede activa para que el nombre se muestre correctamente
@@ -2053,6 +2144,7 @@ async function syncAll() {
     document.getElementById('hdr-sede').textContent = label ? `Sede: ${label}` : 'Seleccioná una sede';
     document.getElementById('miem-sede-label').textContent = label ? `· ${label}` : '';
   }
+
 }
 
 // ══════════════════════════════════════════════
@@ -2174,6 +2266,7 @@ function goSec(id, btn) {
   if(id==='historial')     { renderHistorial(); }
   if(id==='cumples')       { renderCumpleaños(); }
   if(id==='sondeo')        { renderSondeo(); }
+  if(id==='estadisticas')  { renderEstadisticas(); }
   if(id==='config')        { renderSedes(); renderGrupos(); renderTipos(); renderTiposReunion(); cargarMensajesEnForm(); }
 }
 
@@ -2272,6 +2365,14 @@ function getOrdenedMembers() {
 }
 
 function renderAsist() {
+  if (window._syncing) {
+    document.getElementById('lista-asist').innerHTML =
+      '<div style="display:flex;flex-direction:column;align-items:center;padding:52px 0;gap:14px">' +
+      '<div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:rot .75s linear infinite"></div>' +
+      '<div style="font-size:13px;color:var(--txt3);font-weight:600">Cargando miembros...</div>' +
+      '</div>';
+    return;
+  }
   onReunionConfigChange();
   const sm = activeSedeMembers();
   const q = (document.getElementById('search-asist').value||'').toLowerCase();
@@ -4775,6 +4876,7 @@ function init() {
 
   if (SCRIPT_URL) {
     setSyncStatus('spin','Conectando...');
+    window._syncing = true;
     syncAll();
   } else {
     setSyncStatus('err','Sin configurar');
@@ -5304,6 +5406,460 @@ async function syncMembersInBatches(lista, batchSize = 10, delayMs = 800) {
   }
 
   toast(`✅ ${total} personas sincronizadas en Sheets`, 'ok', 4000);
+}
+
+// ══════════════════════════════════════════════
+//  ESTADÍSTICAS — ASISTENCIA POR REUNIÓN
+// ══════════════════════════════════════════════
+
+var _asistTipo = '__all__';
+
+function renderAsistChips() {
+  var el = document.getElementById('est-asist-chips');
+  if (!el) return;
+  var html = '<button class="snd-chip' + (_asistTipo === '__all__' ? ' active' : '') +
+    '" onclick="selAsistTipo(this,\'__all__\')">🗓 Todos</button>';
+  tiposReunion.forEach(function(t) {
+    var lbl = t.label.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html += '<button class="snd-chip' + (_asistTipo === t.label ? ' active' : '') +
+      '" onclick="selAsistTipo(this,\'' + lbl + '\')">' + (t.icon ? t.icon + ' ' : '') + t.label + '</button>';
+  });
+  el.innerHTML = html;
+}
+
+function selAsistTipo(btn, tipo) {
+  _asistTipo = tipo;
+  document.querySelectorAll('#est-asist-chips .snd-chip').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderAsistChart(tipo);
+}
+
+function renderAsistChart(tipo) {
+  var activeM = activeSedeMembers();
+  var total   = activeM.length;
+  var snm = curSede && curSede !== '__todas__'
+    ? (sedes.find(function(s){ return String(s.id) === String(curSede); }) || {}).nombre || ''
+    : '';
+
+  var sess = sessions.filter(function(s) {
+    return !curSede || curSede === '__todas__' ||
+      String(s.sedeId||'') === String(curSede) ||
+      (s.sede||'').toLowerCase() === snm.toLowerCase();
+  });
+
+  if (tipo && tipo !== '__all__') {
+    sess = sess.filter(function(s){ return s.tipo === tipo; });
+  }
+
+  sess = sess.slice()
+    .sort(function(a,b){ return String(a.fecha||'').localeCompare(String(b.fecha||'')); })
+    .slice(-24);
+
+  var avgEl  = document.getElementById('est-asist-avg');
+  var listEl = document.getElementById('est-asist-list');
+
+  if (!sess.length) {
+    avgEl.textContent = '';
+    listEl.innerHTML = '<div style="text-align:center;color:var(--txt4);padding:30px 0;font-size:13px">No hay reuniones con ese filtro</div>';
+    return;
+  }
+
+  var peak    = total || 1;
+  var presArr = sess.map(function(s){ return s.presentes ? s.presentes.length : 0; });
+  var avg     = Math.round(presArr.reduce(function(a,b){return a+b;},0) / presArr.length);
+  var avgPct  = Math.round(avg / peak * 100);
+  var maxPct  = Math.round(Math.max.apply(null, presArr) / peak * 100);
+  var minPct  = Math.round(Math.min.apply(null, presArr) / peak * 100);
+  var avgCol  = avgPct >= 75 ? 'var(--green)' : avgPct >= 50 ? 'var(--orange)' : 'var(--red)';
+
+  avgEl.innerHTML = 'Promedio <strong style="color:' + avgCol + '">' + avgPct + '%</strong>' +
+    ' &nbsp;·&nbsp; <span style="color:var(--green)">↑' + maxPct + '%</span>' +
+    ' &nbsp;·&nbsp; <span style="color:var(--red)">↓' + minPct + '%</span>';
+
+  var DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  listEl.innerHTML = sess.map(function(s, idx) {
+    var pres = s.presentes ? s.presentes.length : 0;
+    var ause = Math.max(0, peak - pres);
+    var pct  = Math.round(pres / peak * 100);
+    var col  = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--orange)' : 'var(--red)';
+    var colL = pct >= 75 ? 'var(--green-l)' : pct >= 50 ? 'var(--orange-l)' : 'var(--red-l)';
+
+    var dateLabel = '', dayLabel = '';
+    try {
+      var parts = (s.fecha||'').split('T')[0].split('-');
+      if (parts.length === 3) {
+        dateLabel = parts[2] + '/' + parts[1];
+        var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+        dayLabel = DAYS[d.getDay()];
+      }
+    } catch(e) { dateLabel = s.fecha || ''; }
+
+    var mt   = tiposReunion.find(function(t){ return t.label === s.tipo; });
+    var icon = mt ? (mt.icon || '') : '';
+    var sep  = idx < sess.length - 1 ? 'border-bottom:1px solid var(--border-s)' : '';
+
+    return '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;' + sep + '">' +
+      '<div style="width:64px;flex-shrink:0;line-height:1.5">' +
+        '<div style="font-size:12.5px;font-weight:700;color:var(--txt2)">' + dateLabel + '</div>' +
+        '<div style="font-size:10.5px;color:var(--txt4)">' + dayLabel + (icon ? ' ' + icon : '') + '</div>' +
+      '</div>' +
+      '<div style="flex:1;height:20px;background:var(--bg);border-radius:100px;overflow:hidden" title="' + pres + ' presentes, ' + ause + ' ausentes">' +
+        '<div style="width:' + Math.min(pct, 100) + '%;height:100%;background:' + col + ';border-radius:100px;transition:width .35s ease"></div>' +
+      '</div>' +
+      '<div style="width:82px;flex-shrink:0;text-align:right;line-height:1.5">' +
+        '<div style="font-size:13.5px;font-weight:800;color:' + col + '">' + pct + '%</div>' +
+        '<div style="font-size:10.5px;color:var(--txt4)">' + pres + ' ✓ · ' + ause + ' ✗</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  ESTADÍSTICAS / GRÁFICOS
+// ══════════════════════════════════════════════
+
+function _polarXY(cx, cy, r, deg) {
+  var rad = (deg - 90) * Math.PI / 180;
+  return { x: +(cx + r * Math.cos(rad)).toFixed(2), y: +(cy + r * Math.sin(rad)).toFixed(2) };
+}
+
+function buildDonut(data, size, sw) {
+  size = size || 160; sw = sw || 38;
+  var total = data.reduce(function(s, d) { return s + d.value; }, 0);
+  if (!total) return '<div style="text-align:center;color:var(--txt4);padding:36px 0;font-size:13px">Sin datos cargados</div>';
+  var cx = size / 2, cy = size / 2, r = (size - sw - 4) / 2;
+  var angle = 0;
+  var segs = data.filter(function(d) { return d.value > 0; }).map(function(d) {
+    var sweep = d.value / total * 360;
+    var safe  = Math.min(sweep, 359.99);
+    var p1 = _polarXY(cx, cy, r, angle);
+    var p2 = _polarXY(cx, cy, r, angle + safe);
+    var path = 'M' + p1.x + ' ' + p1.y + ' A' + r + ' ' + r + ' 0 ' + (safe > 180 ? 1 : 0) + ' 1 ' + p2.x + ' ' + p2.y;
+    angle += sweep;
+    return { label: d.label, value: d.value, color: d.color, path: path, pct: Math.round(d.value / total * 100) };
+  });
+  var arcs = segs.map(function(s) {
+    return '<path d="' + s.path + '" fill="none" stroke="' + s.color + '" stroke-width="' + sw + '" stroke-linecap="butt"/>';
+  }).join('');
+  var legend = segs.map(function(s) {
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px">' +
+      '<span style="width:10px;height:10px;border-radius:2px;background:' + s.color + ';flex-shrink:0"></span>' +
+      '<span style="flex:1;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.label + '</span>' +
+      '<span style="font-weight:700;color:var(--txt)">' + s.value + '</span>' +
+      '<span style="color:var(--txt4);font-size:11px;width:32px;text-align:right">' + s.pct + '%</span>' +
+    '</div>';
+  }).join('');
+  return '<div style="display:flex;flex-direction:column;align-items:center;gap:14px">' +
+    '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="' + sw + '"/>' +
+      arcs +
+      '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-size="22" font-weight="800" fill="var(--txt)" font-family="Plus Jakarta Sans,sans-serif">' + total + '</text>' +
+      '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="9.5" fill="var(--txt4)" font-weight="600" font-family="Plus Jakarta Sans,sans-serif">TOTAL</text>' +
+    '</svg>' +
+    '<div style="width:100%;display:flex;flex-direction:column;gap:7px">' + legend + '</div>' +
+  '</div>';
+}
+
+function buildBars(data, peak) {
+  if (!data.length) return '<div style="text-align:center;color:var(--txt4);padding:36px 0;font-size:13px">Sin reuniones registradas</div>';
+  peak = peak || Math.max.apply(null, data.map(function(d) { return d.value; })) || 1;
+  var H = 90, BW = 34, GAP = 10;
+  var W = data.length * (BW + GAP) - GAP;
+  var bars = data.map(function(d, i) {
+    var bh = Math.max(4, Math.round(d.value / peak * H));
+    var x = i * (BW + GAP), y = H - bh;
+    var pct = peak > 0 ? Math.round(d.value / peak * 100) : 0;
+    var col = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--orange)' : 'var(--blue)';
+    return '<rect x="' + x + '" y="' + y + '" width="' + BW + '" height="' + bh + '" rx="4" fill="' + col + '"/>' +
+      '<text x="' + (x + BW / 2) + '" y="' + (y - 5) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--txt2)" font-family="Plus Jakarta Sans,sans-serif">' + d.value + '</text>' +
+      '<text x="' + (x + BW / 2) + '" y="' + (H + 17) + '" text-anchor="middle" font-size="9" fill="var(--txt4)" font-family="Plus Jakarta Sans,sans-serif">' + d.label + '</text>';
+  }).join('');
+  var svgW = Math.max(W, 300);
+  return '<div style="overflow-x:auto;padding-bottom:4px">' +
+    '<svg width="' + svgW + '" height="' + (H + 26) + '" viewBox="0 0 ' + svgW + ' ' + (H + 26) + '" style="display:block">' + bars + '</svg>' +
+  '</div>';
+}
+
+function renderEstadisticas() {
+  var sm = activeSedeMembers();
+  var total = sm.length;
+
+  var sumEl = document.getElementById('est-summary');
+  var chrEl = document.getElementById('est-charts');
+
+  if (!total) {
+    sumEl.style.display = 'none';
+    chrEl.style.display = 'none';
+    return;
+  }
+
+  sumEl.style.display = '';
+  chrEl.style.display = '';
+
+  // Género
+  var gc = { Masculino: 0, Femenino: 0, 'Sin datos': 0 };
+  sm.forEach(function(m) {
+    if (m.sexo === 'Masculino') gc.Masculino++;
+    else if (m.sexo === 'Femenino') gc.Femenino++;
+    else gc['Sin datos']++;
+  });
+  document.getElementById('est-genero').innerHTML = buildDonut([
+    { label: 'Masculino', value: gc.Masculino,     color: '#4A8FD4' },
+    { label: 'Femenino',  value: gc.Femenino,      color: '#E8779A' },
+    { label: 'Sin datos', value: gc['Sin datos'],  color: '#D1D5DB' }
+  ]);
+
+  // Tipo de asistente
+  var rc = {};
+  sm.forEach(function(m) { var r = m.rol || m.tipoAsistente || 'Sin especificar'; rc[r] = (rc[r] || 0) + 1; });
+  var rolPal = ['#1A5FB4','#1E8A59','#C96B10','#B42A2A','#7C3AED','#0891B2','#DB7093','#9CA3AF'];
+  var rolData = Object.keys(rc).sort(function(a,b){ return rc[b]-rc[a]; }).map(function(k, i) {
+    return { label: k, value: rc[k], color: rolPal[i % rolPal.length] };
+  });
+  document.getElementById('est-tipo').innerHTML = buildDonut(rolData);
+
+  // Rangos de edad
+  var ec = { 'Niños (<13)': 0, 'Adolescentes (13-17)': 0, 'Jóvenes (18-30)': 0, 'Adultos (31-50)': 0, 'Mayores (51+)': 0, 'Sin datos': 0 };
+  sm.forEach(function(m) {
+    var age = bdayAge(m.fechaNac);
+    if (age === null || age === undefined) ec['Sin datos']++;
+    else if (age < 13) ec['Niños (<13)']++;
+    else if (age < 18) ec['Adolescentes (13-17)']++;
+    else if (age < 31) ec['Jóvenes (18-30)']++;
+    else if (age < 51) ec['Adultos (31-50)']++;
+    else               ec['Mayores (51+)']++;
+  });
+  document.getElementById('est-edad').innerHTML = buildDonut([
+    { label: 'Niños (<13)',     value: ec['Niños (<13)'],        color: '#FFD166' },
+    { label: 'Adolescentes',    value: ec['Adolescentes (13-17)'],color: '#06D6A0' },
+    { label: 'Jóvenes (18-30)',value: ec['Jóvenes (18-30)'],    color: '#4A8FD4' },
+    { label: 'Adultos (31-50)',value: ec['Adultos (31-50)'],    color: '#EF476F' },
+    { label: 'Mayores (51+)',  value: ec['Mayores (51+)'],      color: '#9B59B6' },
+    { label: 'Sin datos',      value: ec['Sin datos'],          color: '#D1D5DB' }
+  ]);
+
+  // Bautismo
+  var bc = { 'Sí': 0, 'No': 0, 'Pendiente': 0, 'Sin datos': 0 };
+  sm.forEach(function(m) {
+    var b = m.bautizado;
+    if (b === 'Sí' || b === true || b === 'true') bc['Sí']++;
+    else if (b === 'Pendiente') bc['Pendiente']++;
+    else if (b === 'No') bc['No']++;
+    else bc['Sin datos']++;
+  });
+  document.getElementById('est-bautismo').innerHTML = buildDonut([
+    { label: 'Bautizados',    value: bc['Sí'],        color: '#1E8A59' },
+    { label: 'No bautizados', value: bc['No'],        color: '#B42A2A' },
+    { label: 'Pendiente',     value: bc['Pendiente'], color: '#C96B10' },
+    { label: 'Sin datos',     value: bc['Sin datos'], color: '#D1D5DB' }
+  ]);
+
+  // Estado civil
+  var cc = {};
+  sm.forEach(function(m) { var c = m.estadoCivil || 'Sin datos'; cc[c] = (cc[c] || 0) + 1; });
+  var civPal = ['#4A8FD4','#1E8A59','#C96B10','#7C3AED','#0891B2','#EF476F','#D1D5DB'];
+  var civData = Object.keys(cc).sort(function(a,b){ return cc[b]-cc[a]; }).map(function(k, i) {
+    return { label: k, value: cc[k], color: civPal[i % civPal.length] };
+  });
+  document.getElementById('est-civil').innerHTML = buildDonut(civData);
+
+  // Seminario
+  renderSeminarioChart(sm);
+
+  // Asistencia por tipo
+  _asistTipo = '__all__';
+  renderAsistChips();
+  renderAsistChart('__all__');
+
+  // Ausentes recientes
+  _ausentesTipo = '__all__';
+  renderAusentesChips();
+  renderAusentes('__all__');
+
+  // Tarjetas de resumen
+  var bautizados = bc['Sí'];
+  var ages = sm.map(function(m){ return bdayAge(m.fechaNac); }).filter(function(a){ return a !== null && a !== undefined; });
+  var avgAge = ages.length ? Math.round(ages.reduce(function(a,b){ return a+b; }, 0) / ages.length) : null;
+  document.getElementById('est-summary').innerHTML =
+    '<div class="sc"><div class="sl">Total activos</div><div class="sv">' + total + '</div></div>' +
+    '<div class="sc"><div class="sl">Hombres</div><div class="sv" style="color:#4A8FD4">' + gc.Masculino + '</div></div>' +
+    '<div class="sc"><div class="sl">Mujeres</div><div class="sv" style="color:#E8779A">' + gc.Femenino + '</div></div>' +
+    '<div class="sc"><div class="sl">Bautizados</div><div class="sv" style="color:var(--green)">' + bautizados + '</div></div>' +
+    (avgAge !== null ? '<div class="sc"><div class="sl">Edad promedio</div><div class="sv">' + avgAge + '<span style="font-size:14px;font-weight:600;color:var(--txt3)"> años</span></div></div>' : '');
+}
+
+// ══════════════════════════════════════════════
+//  SEMINARIO
+// ══════════════════════════════════════════════
+
+function renderSeminarioChart(sm) {
+  // Torta principal: Va / No va al seminario
+  var va = 0, nova = 0;
+  var estados = { 'En curso': 0, 'Completado': 0, 'Abandonado': 0, 'Pendiente': 0 };
+
+  sm.forEach(function(m) {
+    var v = m.vaAlSeminario === true || m.vaAlSeminario === 'true';
+    if (v) {
+      va++;
+      var est = m.seminario_estado || '';
+      if (estados[est] !== undefined) estados[est]++;
+    } else {
+      nova++;
+    }
+  });
+
+  var el = document.getElementById('est-seminario');
+  if (!va && !nova) { el.innerHTML = '<div style="text-align:center;color:var(--txt4);padding:30px 0;font-size:13px">Sin datos</div>'; return; }
+
+  // Donut principal: va vs no va
+  var donutHTML = buildDonut([
+    { label: 'Va al seminario', value: va,   color: '#7C3AED' },
+    { label: 'No va',           value: nova, color: '#D1D5DB' }
+  ]);
+
+  // Detalle de estados (solo si hay alguien que va)
+  var detalle = '';
+  if (va > 0) {
+    var estadoItems = [
+      { label: 'En curso',   value: estados['En curso'],   color: '#4A8FD4', icon: '📘' },
+      { label: 'Completado', value: estados['Completado'], color: '#1E8A59', icon: '✅' },
+      { label: 'Pendiente',  value: estados['Pendiente'],  color: '#C96B10', icon: '⏳' },
+      { label: 'Abandonado', value: estados['Abandonado'], color: '#B42A2A', icon: '❌' }
+    ].filter(function(e){ return e.value > 0; });
+
+    if (estadoItems.length) {
+      detalle = '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-s)">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--txt4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Estado del seminario</div>' +
+        estadoItems.map(function(e) {
+          var pct = Math.round(e.value / va * 100);
+          return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+            '<span style="font-size:14px">' + e.icon + '</span>' +
+            '<span style="flex:1;font-size:12.5px;color:var(--txt2)">' + e.label + '</span>' +
+            '<div style="width:80px;height:10px;background:var(--bg);border-radius:100px;overflow:hidden">' +
+              '<div style="width:' + pct + '%;height:100%;background:' + e.color + ';border-radius:100px"></div>' +
+            '</div>' +
+            '<span style="width:28px;text-align:right;font-size:12px;font-weight:700;color:' + e.color + '">' + e.value + '</span>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }
+  }
+
+  el.innerHTML = donutHTML + detalle;
+}
+
+// ══════════════════════════════════════════════
+//  AUSENTES RECIENTES
+// ══════════════════════════════════════════════
+
+var _ausentesTipo = '__all__';
+
+function renderAusentesChips() {
+  var el = document.getElementById('est-ausentes-chips');
+  if (!el) return;
+  var html = '<button class="snd-chip' + (_ausentesTipo === '__all__' ? ' active' : '') +
+    '" onclick="selAusentesTipo(this,\'__all__\')">🗓 Todos</button>';
+  tiposReunion.forEach(function(t) {
+    var lbl = t.label.replace(/'/g,"\\'");
+    html += '<button class="snd-chip' + (_ausentesTipo === t.label ? ' active' : '') +
+      '" onclick="selAusentesTipo(this,\'' + lbl + '\')">' + (t.icon ? t.icon + ' ' : '') + t.label + '</button>';
+  });
+  el.innerHTML = html;
+}
+
+function selAusentesTipo(btn, tipo) {
+  _ausentesTipo = tipo;
+  document.querySelectorAll('#est-ausentes-chips .snd-chip').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderAusentes(tipo);
+}
+
+function goEstTab(id, btn) {
+  ['personas','asistencia','seguimiento'].forEach(function(t) {
+    document.getElementById('estsec-' + t).style.display  = t === id ? '' : 'none';
+    document.getElementById('esttab-' + t).classList.toggle('on', t === id);
+  });
+}
+
+function toggleSeg(key) {
+  var body  = document.getElementById('seg-' + key + '-body');
+  var arrow = document.getElementById('seg-' + key + '-arrow');
+  var open  = body.style.display === 'none';
+  body.style.display    = open ? '' : 'none';
+  arrow.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function renderAusentes(tipo) {
+  var subEl = document.getElementById('est-ausentes-sub');
+  var sm    = activeSedeMembers();
+  var snm   = curSede && curSede !== '__todas__'
+    ? (sedes.find(function(s){ return String(s.id) === String(curSede); }) || {}).nombre || ''
+    : '';
+
+  var N = 4;
+  var sess = sessions.filter(function(s) {
+    var matchSede = !curSede || curSede === '__todas__' ||
+      String(s.sedeId||'') === String(curSede) ||
+      (s.sede||'').toLowerCase() === snm.toLowerCase();
+    var matchTipo = !tipo || tipo === '__all__' || s.tipo === tipo;
+    return matchSede && matchTipo;
+  }).slice().sort(function(a,b){ return String(b.fecha||'').localeCompare(String(a.fecha||'')); }).slice(0, N);
+
+  function setGroup(key, list) {
+    var badge = document.getElementById('seg-' + key + '-badge');
+    var listEl = document.getElementById('seg-' + key + '-list');
+    if (!list.length) {
+      badge.style.display = 'none';
+      listEl.innerHTML = '<div style="text-align:center;color:var(--txt4);padding:20px 0;font-size:13px">Ninguno 🎉</div>';
+    } else {
+      badge.textContent  = list.length;
+      badge.style.display = '';
+      listEl.innerHTML = list.map(memberRow).join('');
+    }
+  }
+
+  function memberRow(r) {
+    var m      = r.m;
+    var pct    = Math.round(r.asistio / r.total * 100);
+    var col    = r.asistio === 0 ? 'var(--red)' : 'var(--orange)';
+    var ini    = (m.nombre||'?').split(' ').slice(0,2).map(function(p){ return p[0]; }).join('').toUpperCase();
+    var dotCol = (sedes.find(function(s){ return String(s.id) === String(m.sedeId); }) || {}).color || 'var(--txt4)';
+    var puntos = '';
+    for (var i = 0; i < r.total; i++) {
+      puntos += '<span style="width:9px;height:9px;border-radius:50%;background:' + (i < r.asistio ? 'var(--green)' : 'var(--border)') + ';display:inline-block"></span>';
+    }
+    return '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-s)">' +
+      '<div style="width:34px;height:34px;border-radius:50%;background:' + dotCol + '22;border:2px solid ' + dotCol + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:' + dotCol + ';flex-shrink:0">' + ini + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (m.nombre||'Sin nombre') + '</div>' +
+        '<div style="font-size:11px;color:var(--txt4);margin-top:3px;display:flex;align-items:center;gap:5px">' +
+          '<span>' + r.asistio + '/' + r.total + '</span>' +
+          '<span style="display:flex;gap:3px">' + puntos + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:15px;font-weight:800;color:' + col + ';flex-shrink:0">' + pct + '%</div>' +
+    '</div>';
+  }
+
+  if (!sess.length) {
+    subEl.textContent = '—';
+    setGroup('nunca',     []);
+    setGroup('irregular', []);
+    return;
+  }
+
+  subEl.textContent = sess.length;
+  var reunIds = sess.map(function(s){ return new Set((s.presentes || []).map(String)); });
+
+  var resultados = sm.map(function(m) {
+    var sid = String(m.id);
+    var asistio = reunIds.filter(function(set){ return set.has(sid); }).length;
+    return { m: m, asistio: asistio, total: sess.length };
+  }).filter(function(r){ return r.asistio < r.total; })
+    .sort(function(a,b){ return a.asistio - b.asistio; });
+
+  setGroup('nunca',     resultados.filter(function(r){ return r.asistio === 0; }));
+  setGroup('irregular', resultados.filter(function(r){ return r.asistio > 0; }));
 }
 </script>
 </body>
