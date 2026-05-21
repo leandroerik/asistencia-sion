@@ -1245,15 +1245,8 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
         <input class="fi" id="tr-nombre" placeholder="Ej: Domingo, Miércoles, Retiro..." oninput="updateTRPreview()">
       </div>
       <div class="fg">
-        <label class="fl">Ícono</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="tr-iconos">
-          ${['☀️','📖','🏠','⭐','🔥','🙏','🎵','✝️','👶','💒','🕊️','📣'].map(ic =>
-            `<label style="cursor:pointer;font-size:22px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid transparent" title="${ic}">
-              <input type="radio" name="tr-icono" value="${ic}" style="display:none">
-              ${ic}
-            </label>`
-          ).join('')}
-        </div>
+        <label class="fl">Ícono <span style="font-weight:400;color:var(--txt3)">(pegá un emoji)</span></label>
+        <input class="fi" id="tr-icono-input" placeholder="☀️" maxlength="8" oninput="updateTRPreview()" style="font-size:20px;width:80px">
       </div>
       <div class="fg">
         <label class="fl">Día por defecto <span style="font-weight:400;color:var(--txt3)">(auto-setea la fecha al abrir)</span></label>
@@ -1832,14 +1825,20 @@ function sedeDotHTML(m) {
 // ══════════════════════════════════════════════
 const PHOTO_DB_NAME = 'sion_photos';
 const PHOTO_STORE   = 'photos';
+const THUMB_STORE   = 'thumbs';
 let photoDB = null;
+let currentThumb = null;
 
 function openPhotoDB() {
   return new Promise((resolve, reject) => {
     if (photoDB) { resolve(photoDB); return; }
-    const req = indexedDB.open(PHOTO_DB_NAME, 1);
+    const req = indexedDB.open(PHOTO_DB_NAME, 2);
     req.onupgradeneeded = e => {
-      e.target.result.createObjectStore(PHOTO_STORE, { keyPath: 'id' });
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(PHOTO_STORE))
+        db.createObjectStore(PHOTO_STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(THUMB_STORE))
+        db.createObjectStore(THUMB_STORE, { keyPath: 'id' });
     };
     req.onsuccess = e => { photoDB = e.target.result; resolve(photoDB); };
     req.onerror   = () => reject(req.error);
@@ -1882,6 +1881,116 @@ async function deletePhotoLocal(memberId) {
   } catch(e) {}
 }
 
+// ── Thumbnail helpers ────────────────────────────────────────────────
+function compressToThumb(img, size=80) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const dim = Math.min(img.width, img.height);
+  const sx = (img.width  - dim) / 2;
+  const sy = (img.height - dim) / 2;
+  canvas.getContext('2d').drawImage(img, sx, sy, dim, dim, 0, 0, size, size);
+  return canvas.toDataURL('image/jpeg', 0.75);
+}
+
+async function saveThumbLocal(memberId, thumb) {
+  try {
+    const db = await openPhotoDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(THUMB_STORE, 'readwrite');
+      tx.objectStore(THUMB_STORE).put({ id: String(memberId), photo: thumb });
+      tx.oncomplete = resolve;
+      tx.onerror    = () => reject(tx.error);
+    });
+  } catch(e) { console.warn('IndexedDB thumb write error:', e); }
+}
+
+async function loadThumbsFromDB() {
+  try {
+    const db = await openPhotoDB();
+    return new Promise((resolve) => {
+      const tx  = db.transaction(THUMB_STORE, 'readonly');
+      const req = tx.objectStore(THUMB_STORE).getAll();
+      req.onsuccess = () => {
+        (req.result || []).forEach(p => {
+          const m = members.find(x => String(x.id) === String(p.id));
+          if (m) m.photo_thumb = p.photo;
+        });
+        resolve();
+      };
+      req.onerror = resolve;
+    });
+  } catch(e) {}
+}
+
+// Carga fotos en dos pasadas: primero thumbnails de miembros activos → renderiza lista,
+// luego resto de thumbs → renderiza todo, luego fotos completas y migración en background.
+async function initPhotosProgressive() {
+  const db = await openPhotoDB().catch(() => null);
+  if (!db) return;
+
+  // Una sola lectura de IndexedDB trae todos los thumbs
+  const thumbMap = {};
+  await new Promise(resolve => {
+    const tx  = db.transaction(THUMB_STORE, 'readonly');
+    const req = tx.objectStore(THUMB_STORE).getAll();
+    req.onsuccess = () => { (req.result || []).forEach(p => { thumbMap[p.id] = p.photo; }); resolve(); };
+    req.onerror   = resolve;
+  });
+
+  // Pasada 1 — miembros activos de la sede actual (los que se usan para tomar lista)
+  const activeIds = new Set(activeSedeMembers().map(m => String(m.id)));
+  members.forEach(m => {
+    if (activeIds.has(String(m.id)) && thumbMap[String(m.id)])
+      m.photo_thumb = thumbMap[String(m.id)];
+  });
+  if (activeIds.size) renderAsist();
+
+  // Pasada 2 — el resto de miembros
+  members.forEach(m => {
+    if (!m.photo_thumb && thumbMap[String(m.id)])
+      m.photo_thumb = thumbMap[String(m.id)];
+  });
+  renderAll();
+
+  // Background: fotos completas (para lightbox) y migración EXIF
+  await loadPhotosFromDB();
+  await migratePhotos();
+}
+
+// Migración única: strip EXIF de fotos antiguas y genera thumbs faltantes
+async function migratePhotos() {
+  const exifDone = localStorage.getItem('sion_photo_migrate_v1') === '1';
+  let stripped = 0;
+  for (const m of members) {
+    if (!m.photo || !m.photo.startsWith('data:image/')) continue;
+    const needsExif  = !exifDone && m.photo.includes('RXhpZgAA');
+    const needsThumb = !m.photo_thumb;
+    if (!needsExif && !needsThumb) continue;
+    await new Promise(resolve => {
+      const img = new Image();
+      img.onload = async () => {
+        if (needsExif) {
+          m.photo = compressImage(img, 150 * 1024);
+          await savePhotoLocal(m.id, m.photo);
+          stripped++;
+        }
+        if (needsThumb) {
+          m.photo_thumb = compressToThumb(img);
+          await saveThumbLocal(m.id, m.photo_thumb);
+        }
+        resolve();
+      };
+      img.onerror = resolve;
+      img.src = m.photo;
+    });
+  }
+  localStorage.setItem('sion_photo_migrate_v1', '1');
+  if (stripped > 0) {
+    saveLocal();
+    toast(`✅ Metadatos eliminados de ${stripped} foto${stripped > 1 ? 's' : ''}`, 'ok', 3500);
+  }
+}
+
 // Cargar fotos desde IndexedDB a los miembros en memoria (al iniciar)
 async function loadPhotosFromDB() {
   try {
@@ -1906,13 +2015,15 @@ async function loadPhotosFromDB() {
 function saveLocal() {
   const photosB64 = {};
   const membersForStorage = members.map(m => {
-    if (m.photo?.startsWith('data:')) {
+    // Siempre excluir photo_thumb de localStorage (vive solo en IndexedDB)
+    const { photo_thumb, ...mNoThumb } = m;
+    if (mNoThumb.photo?.startsWith('data:')) {
       // Guardar base64 en objeto separado, no en el array principal
-      photosB64[String(m.id)] = m.photo;
-      const { photo, ...rest } = m;
+      photosB64[String(mNoThumb.id)] = mNoThumb.photo;
+      const { photo, ...rest } = mNoThumb;
       return rest;
     }
-    return m;
+    return mNoThumb;
   });
   try {
     localStorage.setItem('sion_members',  JSON.stringify(membersForStorage));
@@ -1963,9 +2074,12 @@ function avHTML(m, size=44, id='') {
   if (photoOk) {
     const nombreEsc = (m.nombre||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     const urlEsc    = m.photo.replace(/"/g,'&quot;');
+    // Usar thumbnail (80px, ~10KB) para avatares pequeños; foto completa solo en lightbox
+    const thumbOk   = m.photo_thumb && m.photo_thumb.startsWith('data:');
+    const dispSrc   = thumbOk ? m.photo_thumb.replace(/"/g,'&quot;') : urlEsc;
     return `<div class="av" style="${s};cursor:pointer"${idAttr}
       onclick="event.stopPropagation();openLightbox('${urlEsc.replace(/'/g,"\\'")}','${nombreEsc.replace(/'/g,"\\'")}')">
-      <img src="${urlEsc}" alt="${nombreEsc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"
+      <img src="${dispSrc}" alt="${nombreEsc}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%"
         onerror="this.parentElement.style.background='${bg}';this.style.display='none';this.parentElement.innerHTML='<div class=&quot;av-l&quot; style=&quot;color:${gc(m.nombre)}&quot;>${ini(m.nombre)}</div>'">
     </div>`;
   }
@@ -2068,12 +2182,14 @@ async function syncAll() {
     api({action:'getMensajes'}),
   ]);
   if (mr?.members)  {
-    // Sanear campo photo: solo aceptar URLs reales
+    // Preservar thumbnails ya cargados en memoria antes de reemplazar el array
+    const prevThumbs = new Map(members.map(m => [String(m.id), m.photo_thumb]));
     members = mr.members.map(m => ({
       ...m,
       photo: (m.photo && typeof m.photo === 'string' &&
               (m.photo.startsWith('http') || m.photo.startsWith('data:')))
-             ? m.photo : null
+             ? m.photo : null,
+      photo_thumb: prevThumbs.get(String(m.id)) || null,
     }));
     saveLocal();
     toast(`✅ ${members.length} personas cargadas desde Sheets`,'ok');
@@ -3284,6 +3400,7 @@ function _refreshActivoFormBtn() {
 function openMemberModal(id=null) {
   editingId = id ? String(id) : null;
   currentPhoto = null;
+  currentThumb = null;
   openModal('modal-member');
 
   // Reset foto UI
@@ -3479,7 +3596,13 @@ async function guardarMiembro() {
   if (photo && photo.startsWith('data:')) {
     await savePhotoLocal(id, photo);
     const m = members.find(x => String(x.id) === String(id));
-    if (m) m.photo = photo;
+    if (m) {
+      m.photo = photo;
+      if (currentThumb) {
+        m.photo_thumb = currentThumb;
+        await saveThumbLocal(id, currentThumb);
+      }
+    }
     renderAll();
   }
 
@@ -3496,6 +3619,7 @@ async function guardarMiembro() {
   btn.disabled = false; btn.textContent = 'Guardar';
   editingId = null;
   currentPhoto = null;
+  currentThumb = null;
   closeModal('modal-member');
   renderAll();
 }
@@ -3544,6 +3668,7 @@ function handlePhoto(e) {
     const img = new Image();
     img.onload = () => {
       currentPhoto = compressImage(img, 150 * 1024);
+      currentThumb = compressToThumb(img);
       const finalKB  = Math.round((currentPhoto.length * 3 / 4) / 1024);
       document.getElementById('photo-prev').src              = currentPhoto;
       document.getElementById('photo-prev').style.display    = 'block';
@@ -3562,6 +3687,7 @@ function handlePhoto(e) {
 
 function removePhoto() {
   currentPhoto = null;
+  currentThumb = null;
   document.getElementById('photo-prev').style.display    = 'none';
   document.getElementById('photo-prev').src              = '';
   document.getElementById('photo-ph-wrap').style.display = 'flex';
@@ -3589,16 +3715,19 @@ async function quickPhotoSave(e) {
     img.onload = async () => {
       const originalKB = Math.round(file.size / 1024);
       const photo = compressImage(img, 150 * 1024);
+      const thumb = compressToThumb(img);
       const finalKB = Math.round((photo.length * 3 / 4) / 1024);
 
       // Actualizar en memoria
       const m = members.find(x => String(x.id) === String(profileId));
       if (m) {
         m.photo = photo;
+        m.photo_thumb = thumb;
         saveLocal();
 
         // Guardar en IndexedDB
         await savePhotoLocal(m.id, photo);
+        await saveThumbLocal(m.id, thumb);
 
         // v22: sincronizar base64 directo a Sheets
         if (SCRIPT_URL) {
@@ -4720,38 +4849,21 @@ function openTipoReunionModal(id) {
   document.getElementById('tr-modal-title').textContent = id ? 'Editar tipo de reunión' : 'Nuevo tipo de reunión';
   document.getElementById('tr-nombre').value = t?.label || '';
   document.getElementById('tr-dia-semana').value = t?.diaSemana !== undefined && t?.diaSemana !== null ? String(t.diaSemana) : '';
-  // Seleccionar ícono
-  const icono = t?.icon || '☀️';
-  document.querySelectorAll('input[name="tr-icono"]').forEach(r => {
-    r.checked = r.value === icono;
-    const lbl = r.parentElement;
-    lbl.style.borderColor = r.checked ? 'var(--blue)' : 'transparent';
-    lbl.style.background  = r.checked ? 'var(--blue-l)' : '';
-  });
-  // Listeners de ícono
-  document.querySelectorAll('input[name="tr-icono"]').forEach(r => {
-    r.onchange = () => {
-      document.querySelectorAll('input[name="tr-icono"]').forEach(x => {
-        x.parentElement.style.borderColor = x.checked ? 'var(--blue)' : 'transparent';
-        x.parentElement.style.background  = x.checked ? 'var(--blue-l)' : '';
-      });
-      updateTRPreview();
-    };
-  });
+  document.getElementById('tr-icono-input').value = t?.icon || '☀️';
   updateTRPreview();
   openModal('modal-tipo-reunion');
 }
 
 function updateTRPreview() {
   const nombre = document.getElementById('tr-nombre').value || 'Vista previa';
-  const icono  = document.querySelector('input[name="tr-icono"]:checked')?.value || '☀️';
+  const icono  = document.getElementById('tr-icono-input')?.value || '☀️';
   document.getElementById('tr-preview').textContent = icono + ' ' + nombre;
 }
 
 function guardarTipoReunion() {
   const label = document.getElementById('tr-nombre').value.trim();
   if (!label) { toast('⚠️ Ingresá un nombre','err'); return; }
-  const icon = document.querySelector('input[name="tr-icono"]:checked')?.value || '☀️';
+  const icon = document.getElementById('tr-icono-input')?.value.trim() || '☀️';
   const diaRaw = document.getElementById('tr-dia-semana').value;
   const diaSemana = diaRaw !== '' ? parseInt(diaRaw) : null;
 
@@ -4915,8 +5027,10 @@ function init() {
   }
 
   renderMeetTypes();
-  // Cargar fotos desde IndexedDB antes de renderizar
-  loadPhotosFromDB().then(() => renderAll());
+  // Mostrar la lista inmediatamente (desde caché localStorage, sin fotos)
+  renderAll();
+  // Cargar fotos en segundo plano: thumbs activos → render → resto → render → fotos completas
+  initPhotosProgressive();
 }
 
 init();

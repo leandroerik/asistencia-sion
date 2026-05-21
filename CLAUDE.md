@@ -21,7 +21,7 @@ The application runs entirely in the browser, syncing data to a Google Sheets sp
 ### Core Files
 
 **Frontend:**
-- `index.html` (5310 lines) - Single HTML file containing all UI, styles, and JavaScript
+- `index.html` (5866 lines) - Single HTML file containing all UI, styles, and JavaScript
   - CSS: Design system with custom properties, layouts, components (cards, buttons, modals, forms)
   - JavaScript: All app logic, state management, rendering, API integration, local sync
 
@@ -94,8 +94,9 @@ The app has six main sections (tab navigation):
 **API Communication:**
 - `api(params)` - GET requests to GAS backend (returns action results)
 - `apiPost(body)` - POST requests to GAS backend (sends mutations)
-- `syncAll()` - Loads all data from backend (called on startup and manual refresh)
+- `syncAll()` - Loads all data from backend in one `Promise.all()` (8 parallel GET calls); called on startup and manual refresh
 - Error handling: Sync status shows green dot (synced), orange (syncing), red (error)
+- **CORS critical**: Never set `Content-Type: application/json` on GAS POST requests. That header triggers a preflight OPTIONS request which Google rejects with 405. Send raw JSON body without that header — GAS reads it from `e.postData.contents` regardless.
 
 **Rendering:**
 - `renderAll()` - Re-render all visible sections
@@ -104,9 +105,10 @@ The app has six main sections (tab navigation):
 - Toasts: `toast(msg, type, duration)` for notifications
 
 **Local Storage:**
-- `saveLocal()` - Persist in-memory data to browser localStorage
-- Photo storage: `savePhotoLocal()`, `getPhotoLocal()`, `deletePhotoLocal()` use IndexedDB
-- Constants: `SCRIPT_URL_KEY`, `sion_members`, `sion_sessions`, `sion_photos_b64`, etc.
+- `saveLocal()` - Persists `members` and `sessions` to localStorage (strips base64 photos > inline threshold to keep size manageable)
+- `saveEntidades()` - Persists `sedes`, `grupos`, `tipos`
+- Photo storage: `savePhotoLocal()`, `getPhotoLocal()`, `deletePhotoLocal()` use IndexedDB (`sion_photos` DB, `photos` store)
+- Key inventory: `sion_members`, `sion_sessions`, `sion_sedes`, `sion_grupos`, `sion_tipos`, `sion_tipos_reunion`, `sion_mensajes`, `sion_mensajes_ver`, `sion_sede`, `sion_next_id`, `sion_photos_b64`, `sion_script_url`
 
 **ID Management:**
 - `getNextId()`, `consumeNextId()` - Numeric IDs for members
@@ -120,13 +122,28 @@ The app has six main sections (tab navigation):
 
 **Attendance Tracking:**
 - `curAttend` - In-memory state of current meeting attendance
-- `asistOrden` - Customizable order of members in attendance list
+- `asistOrden` - Customizable order of members in attendance list (persisted in localStorage, drag-and-drop reordering via HTML5 drag events)
 - `sincronizarAsistencia()` - Save attendance session to backend
 - `renderAusentesEstaSemana()` - Show who didn't attend recent meetings
 
+**WhatsApp Messages:**
+- Four configurable templates: `ausente`, `cumple`, `seguimiento`, `bienvenida`
+- Stored in `mensajes` object (in-memory + localStorage + Sheets `Mensajes`)
+- `getMensaje(key, nombre)` resolves a template and substitutes `{nombre}` with the member's first name
+- `MSG_DEFAULTS` holds fallbacks if the stored value is corrupted (`esCorrupto()` check)
+
 **Photo Management:**
-- `openPhotoDB()`, `loadPhotosFromDB()` - IndexedDB initialization
-- Photos can be URLs or base64-encoded strings
+- IndexedDB `sion_photos` v2 — two stores: `photos` (full ~150KB) and `thumbs` (80×80px ~10KB)
+- `compressImage(img, targetBytes)` — resize to max 400px, iterate quality levels to hit target; strips EXIF via canvas
+- `compressToThumb(img)` — square center-crop to 80×80px at quality 0.75; always strips EXIF
+- `savePhotoLocal(id, base64)` / `saveThumbLocal(id, base64)` — write to respective IndexedDB store
+- `loadPhotosFromDB()` — loads full photos into `m.photo` (used for lightbox)
+- `loadThumbsFromDB()` — loads thumbnails into `m.photo_thumb` (used by `avHTML` for list avatars)
+- `initPhotosProgressive()` — progressive load at startup: active-sede members' thumbs first → `renderAsist()`, then all thumbs → `renderAll()`, then full photos and EXIF migration in background
+- `migratePhotos()` — one-time migration (flag `sion_photo_migrate_v1`): strips EXIF from legacy photos (detected via `RXhpZgAA` base64 signature) and generates missing thumbnails
+- `avHTML(m, size, id)` — uses `m.photo_thumb` for the `<img src>` in lists (with `loading="lazy"`); full `m.photo` used only in lightbox click handler
+- `syncAll()` preserves `m.photo_thumb` when replacing the members array from Sheets
+- `saveLocal()` strips `photo_thumb` from localStorage (thumbnails live only in IndexedDB)
 - Lightbox: `openLightbox(url, nombre)`, `closeLightbox()`
 
 ### GAS Backend API
@@ -178,7 +195,7 @@ The app has six main sections (tab navigation):
 - Backward compatibility handled in frontend (legacy field name mapping)
 
 **Legacy Compatibility:**
-- Frontend sends `tipoAsistente`, backend maps to `rol`
+- Frontend still sends `tipoAsistente` (never `rol`) when saving a member; `flattenPersona()` in GAS maps it to the `rol` column. When reading, `openMemberModal()` accepts either field (`m.tipoAsistente || m.rol`).
 - Old seminario fields (`seminario1`, `seminario2`) dropped in favor of flattened columns
 - Photo storage evolved: URL → base64 → IndexedDB
 
@@ -193,6 +210,14 @@ The app has six main sections (tab navigation):
 - Color coding: Members by sede (color palette), attendance status (green/yellow/red)
 - Initials avatar: `ini(name)` generates 2-char avatar from name
 - Emoji integration: Icons for meeting types, status badges
+
+## Development Workflow
+
+There is no build step. To work on the app:
+
+1. Open `index.html` directly in a browser, or serve the directory with any static server (e.g., `python -m http.server 8080`).
+2. The app loads data from the GAS backend on startup via `syncAll()`. If the backend URL is wrong or offline, the app falls back to localStorage cache.
+3. To test GAS changes without redeploying, you can point the app to a different deployment URL via the Config tab.
 
 ## GAS Deployment
 
