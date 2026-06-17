@@ -83,6 +83,8 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 
 /* ── TOOLBAR ── */
 .tb{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filtro-av-check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--txt2);padding:4px 2px;cursor:pointer;white-space:nowrap}
+.filtro-av-check input{cursor:pointer}
 .si{flex:1;min-width:150px;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--txt);outline:none;transition:all .15s}
 .si:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,95,180,.1);background:var(--surf)}
 .si::placeholder{color:var(--txt4)}
@@ -185,10 +187,10 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .ph-row:last-child{border-bottom:none}
 
 /* ── FORM ── */
-.fg{display:flex;flex-direction:column;gap:6px}
+.fg{display:flex;flex-direction:column;gap:6px;min-width:0}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 .fl{font-size:12px;font-weight:700;color:var(--txt2)}
-.fi{padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--txt);outline:none;transition:all .15s}
+.fi{padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--txt);outline:none;transition:all .15s;width:100%;box-sizing:border-box;min-width:0}
 .fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,95,180,.1);background:var(--surf)}
 .full{grid-column:1/-1}
 
@@ -256,6 +258,10 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
   .hide-mobile{display:none}
   .fgrid{grid-template-columns:1fr}
   .prof-grid{grid-template-columns:1fr}
+  .ov{padding:14px 8px}
+  #modal-member .mhdr{padding:14px 16px 12px!important}
+  #modal-member .mbody{padding:14px 16px 8px!important}
+  #modal-member .mftr{padding:12px 16px 16px!important}
 }
 .chip-grupo{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surf);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--txt3);transition:all .15s}
 .chip-grupo:hover{border-color:var(--blue-m);color:var(--blue)}
@@ -269,8 +275,8 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 .tipo-badge.tipo-diacono  {background:#FEF3C7;color:#92400E}
 .tipo-badge.tipo-lider    {background:#DBEAFE;color:#1E40AF}
 .tipo-badge.tipo-miembro  {background:#D1FAE5;color:#065F46}
-.tipo-badge.tipo-asistente{background:#E0F2FE;color:#0C4A6E}
-.tipo-badge.tipo-visita   {background:#FCE7F3;color:#9D174D}
+.tipo-badge.tipo-asistente{background:#EFF6FF;color:#2563EB}
+.tipo-badge.tipo-visita   {background:#FEE2E2;color:#B91C1C}
 .tipo-badge.tipo-default  {background:var(--bg);color:var(--txt3)}
 
 /* ── FILTER BAR ── */
@@ -443,7 +449,7 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 
     <div class="panel">
       <div class="ph" style="flex-wrap:wrap;gap:8px">
-        <span class="pt">Personas <span id="miem-sede-label" style="color:var(--blue)"></span></span>
+        <span class="pt">Personas <span id="miem-sede-label" style="color:var(--blue)"></span> <span id="miem-count" style="color:var(--txt4);font-weight:600;font-size:13px"></span></span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button id="bday-btn" class="bday-btn" style="display:none" onclick="openModal('modal-bday')">🎂 <span id="bday-btn-label">Cumpleaños</span></button>
           <button class="bsm" onclick="openImportModal()" title="Importar desde CSV">📥 Importar CSV</button>
@@ -455,8 +461,15 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="grupo-chips">
         <button class="chip-grupo on" onclick="setGrupoFilter('',this)">Todos</button>
       </div>
-      <!-- FILTRO POR TIPO (generado dinámicamente desde los datos) -->
-      <div class="filter-bar" id="tipo-chips" style="display:none"></div>
+      <!-- FILTRO POR TIPO + ACTIVO/INACTIVO, en la misma fila -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <div class="filter-bar" id="tipo-chips" style="display:none;margin-bottom:0"></div>
+        <div class="snd-pill-group" id="activo-chips" style="width:fit-content">
+          <button class="snd-pill on" id="btn-activo-si" onclick="setActivoFilter('activos',this)">✅ Activos</button>
+          <button class="snd-pill" id="btn-activo-no" onclick="setActivoFilter('inactivos',this)">❌ Inactivos</button>
+          <button class="snd-pill" id="btn-activo-todos" onclick="setActivoFilter('todos',this)">Todos</button>
+        </div>
+      </div>
       <div class="tb">
         <input class="si" type="text" placeholder="🔍 Buscar por nombre, celular o grupo..." id="search-miem"
           oninput="renderMiembros()"
@@ -471,6 +484,31 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
           <option value="sede">🏛 Sede</option>
         </select>
         <button class="btn btn-p" onclick="renderMiembros()">🔍 Buscar</button>
+        <div style="position:relative;display:inline-block">
+          <button class="bsm" id="btn-filtros-av" onclick="toggleFiltrosAvanzados(event)">🔧 Filtros <span id="filtros-av-badge" style="display:none;color:var(--blue);font-weight:800"></span></button>
+          <div id="panel-filtros-av" style="display:none;position:absolute;top:100%;right:0;margin-top:6px;background:var(--surf);border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:14px;z-index:50;min-width:200px">
+            <div style="font-size:10px;font-weight:800;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sexo</div>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="sexo" value="Masculino" onchange="aplicarFiltrosAvanzados()"> Masculino</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="sexo" value="Femenino" onchange="aplicarFiltrosAvanzados()"> Femenino</label>
+
+            <div style="font-size:10px;font-weight:800;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Estado civil</div>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="estadoCivil" value="Soltero/a" onchange="aplicarFiltrosAvanzados()"> Soltero/a</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="estadoCivil" value="Casado/a" onchange="aplicarFiltrosAvanzados()"> Casado/a</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="estadoCivil" value="Divorciado/a" onchange="aplicarFiltrosAvanzados()"> Divorciado/a</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="estadoCivil" value="Viudo/a" onchange="aplicarFiltrosAvanzados()"> Viudo/a</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="estadoCivil" value="En pareja" onchange="aplicarFiltrosAvanzados()"> En pareja</label>
+
+            <div style="font-size:10px;font-weight:800;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Rol familiar</div>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="rolFamiliar" value="Padre" onchange="aplicarFiltrosAvanzados()"> Padre</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="rolFamiliar" value="Madre" onchange="aplicarFiltrosAvanzados()"> Madre</label>
+
+            <div style="font-size:10px;font-weight:800;color:var(--txt4);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">¿Va al seminario?</div>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="vaAlSeminario" value="Sí" onchange="aplicarFiltrosAvanzados()"> Sí</label>
+            <label class="filtro-av-check"><input type="checkbox" data-cat="vaAlSeminario" value="No" onchange="aplicarFiltrosAvanzados()"> No</label>
+
+            <button class="bsm" style="width:100%;margin-top:12px;justify-content:center" onclick="limpiarFiltrosAvanzados()">✕ Limpiar filtros</button>
+          </div>
+        </div>
         <button class="bsm" onclick="syncAll()">🔄 Sincronizar</button>
       </div>
       <div id="lista-miem"></div>
@@ -840,10 +878,10 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
       <button class="mclose" onclick="editingId=null;currentPhoto=null;closeModal('modal-member')">✕</button>
     </div>
 
-    <div style="padding:16px 24px 8px;display:flex;flex-direction:column;gap:0">
+    <div class="mbody" style="padding:16px 24px 8px;display:flex;flex-direction:column;gap:0;min-width:0">
 
       <!-- FOTO -->
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border-s)">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border-s);flex-wrap:wrap">
         <div style="position:relative;flex-shrink:0">
           <div id="photo-ph-wrap" onclick="document.getElementById('file-foto').click()"
             style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:26px;flex-shrink:0;transition:all .15s"
@@ -854,7 +892,7 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
           <div id="photo-edit-badge" onclick="document.getElementById('file-foto').click()"
             style="display:none;position:absolute;bottom:2px;right:2px;width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;display:none;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25)">✏️</div>
         </div>
-        <div>
+        <div style="min-width:0;flex:1">
           <button class="bsm" onclick="document.getElementById('file-foto').click()" style="margin-bottom:6px">📷 Subir / cambiar foto</button><br>
           <button class="bsm" id="btn-rm-photo" style="display:none" onclick="removePhoto()">🗑 Quitar foto</button>
           <div style="font-size:11px;color:var(--txt4);margin-top:5px">Cualquier tamaño · se comprime automáticamente</div>
@@ -866,9 +904,9 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
       <div style="font-size:10px;font-weight:800;color:var(--txt4);text-transform:uppercase;letter-spacing:.7px;padding:4px 0 10px;border-bottom:1px solid var(--border-s);margin-bottom:12px">Identidad</div>
       <div class="fgrid" style="margin-bottom:16px">
         <div class="fg full"><label class="fl">Nombre completo *</label><input class="fi" id="f-nombre" placeholder="Ej: María González"></div>
-        <div class="fg"><label class="fl">Fecha de nacimiento</label><input class="fi" id="f-fechanac" type="date"></div>
+        <div class="fg"><label class="fl">Fecha de nacimiento</label><input class="fi" id="f-fechanac" type="date" onchange="updateRolFamiliarField()"></div>
         <div class="fg"><label class="fl">Sexo</label>
-          <select class="fi" id="f-sexo">
+          <select class="fi" id="f-sexo" onchange="updateRolFamiliarField()">
             <option value="">Sin especificar</option>
             <option value="Femenino">Femenino</option>
             <option value="Masculino">Masculino</option>
@@ -935,15 +973,6 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
             <option value="Pendiente">⏳ Pendiente</option>
           </select>
         </div>
-        <div class="fg"><label class="fl">Nombre del seminario</label>
-          <input class="fi" id="f-seminario-nombre" placeholder="Ej: Fundamentos de fe, Liderazgo...">
-        </div>
-        <div class="fg"><label class="fl">Fecha de inicio</label>
-          <input class="fi" id="f-seminario-fecha-inicio" type="date">
-        </div>
-        <div class="fg"><label class="fl">Fecha de finalización</label>
-          <input class="fi" id="f-seminario-fecha-fin" type="date">
-        </div>
       </div>
 
       <!-- ESTADO ESPIRITUAL -->
@@ -973,8 +1002,13 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
             <option value="En pareja">En pareja</option>
           </select>
         </div>
-        <div class="fg"><label class="fl">Cónyuge (ID)</label>
-          <input class="fi" id="f-conyuge" placeholder="ID de la persona cónyuge">
+        <div class="fg" id="fg-rol-familiar">
+          <label class="fl" id="lbl-rol-familiar">¿Es padre/madre?</label>
+          <select class="fi" id="f-rol-familiar">
+            <option value="">No / Sin especificar</option>
+            <option value="Padre">Padre</option>
+            <option value="Madre">Madre</option>
+          </select>
         </div>
       </div>
 
@@ -1076,7 +1110,7 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
         <strong style="display:block;margin-bottom:6px;color:var(--blue)">📋 Formatos de CSV aceptados</strong>
         El archivo puede tener <strong>cualquier separador</strong> (punto y coma o coma) y las siguientes columnas:<br>
         <code style="background:#fff;padding:2px 6px;border-radius:4px;font-size:12px;display:inline-block;margin-top:6px">Primer Nombre · Primer Apellido · Fecha Nacimiento · Grupo al que pertenece</code><br>
-        <span style="color:var(--txt3);font-size:12px;margin-top:4px;display:block"><strong>Identidad:</strong> nombre, fechaNac, sexo, estadoCivil, conyugeId &nbsp;·&nbsp; <strong>Contacto:</strong> celular, email, direccion<br><strong>Eclesiástico:</strong> sedeId, sede_nombre, grupoId, grupo_nombre, rol, ingreso, activo<br><strong>Espiritual:</strong> bautizado, bautismo_fecha, bautismo_estado, ministerio, comoLlego, notas<br><strong>Seminario:</strong> seminario_estado, seminario_nombre, seminario_fecha_inicio, seminario_fecha_fin</span>
+        <span style="color:var(--txt3);font-size:12px;margin-top:4px;display:block"><strong>Identidad:</strong> nombre, fechaNac, sexo, estadoCivil, rolFamiliar &nbsp;·&nbsp; <strong>Contacto:</strong> celular, email, direccion<br><strong>Eclesiástico:</strong> sedeId, sede_nombre, grupoId, grupo_nombre, rol, ingreso, activo<br><strong>Espiritual:</strong> bautizado, bautismo_fecha, bautismo_estado, ministerio, comoLlego, notas<br><strong>Seminario:</strong> vaAlSeminario, seminario_estado</span>
       </div>
 
       <!-- Asignar sede y grupo -->
@@ -1309,7 +1343,7 @@ input[name="sede-color"]:checked + .color-dot{border-color:var(--txt);transform:
 //  CONFIG & ESTADO
 // ══════════════════════════════════════════════
 const SCRIPT_URL_KEY = 'sion_script_url';
-const SCRIPT_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbyq3ZHiTlgcsqyz34YTHQmZGX440lSoI1NpdBerlKsP7SBX5ZYuxaj_cqBIREr6FdVjtw/exec';
+const SCRIPT_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbwc0D_q-7ZyHJvjHf9HnchLwMEDwtd_ahHohJWMdH_MV4YAAaLdyHQTT0n72K0H8X88-Q/exec';
 const SCRIPT_URL_OLD     = 'https://script.google.com/macros/s/AKfycbxVCViOo7tT4txrBvmkup9WqVkCDmjqCQ0xrnmJeM94As4t0B5-pAZqOM_NKXyjqLHv/exec';
 // Si quedó guardada la URL vieja, limpiarla para que tome el nuevo default
 if (localStorage.getItem(SCRIPT_URL_KEY) === SCRIPT_URL_OLD) localStorage.removeItem(SCRIPT_URL_KEY);
@@ -1375,6 +1409,8 @@ let curMeetType = 'Domingo';
 let curSede = localStorage.getItem('sion_sede') || 'Capital';
 let curGrupoFilter = '';
 let curTipoFilter  = '';
+let curFiltrosAv = { sexo: [], estadoCivil: [], rolFamiliar: [], vaAlSeminario: [] };
+let curActivoFilter = 'activos';
 let histTipoFilter = ''; // filtro tipo reunión en historial
 let editingId = null;
 let currentSessId = null;
@@ -1801,6 +1837,14 @@ const TIPO_CLASSES = {
   'Pastor':'tipo-pastor','Diácono':'tipo-diacono','Líder':'tipo-lider',
   'Miembro':'tipo-miembro','Asistente':'tipo-asistente','Visita':'tipo-visita'
 };
+function rolFamiliarBadge(rol) {
+  if (!rol) return '';
+  const cfg = rol === 'Madre'
+    ? { bg:'#FDF2F8', color:'#9D174D', border:'#FBCFE8' }
+    : { bg:'#EFF6FF', color:'#1D4ED8', border:'#BFDBFE' };
+  return `<span class="tipo-badge" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border}">${rol}</span>`;
+}
+
 function tipoBadge(tipo) {
   if (!tipo) return '';
   // Buscar en tipos configurados por el usuario
@@ -2334,6 +2378,50 @@ function setTipoFilter(tipo, btn) {
   renderMiembros();
 }
 
+function setActivoFilter(val, btn) {
+  curActivoFilter = val;
+  document.querySelectorAll('#activo-chips .snd-pill').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderMiembros();
+}
+
+function toggleFiltrosAvanzados(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('panel-filtros-av');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function aplicarFiltrosAvanzados() {
+  const panel = document.getElementById('panel-filtros-av');
+  if (!panel) return;
+  const cats = { sexo: [], estadoCivil: [], rolFamiliar: [], vaAlSeminario: [] };
+  panel.querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
+    if (cats[cb.dataset.cat]) cats[cb.dataset.cat].push(cb.value);
+  });
+  curFiltrosAv = cats;
+  const total = cats.sexo.length + cats.estadoCivil.length + cats.rolFamiliar.length + cats.vaAlSeminario.length;
+  const badge = document.getElementById('filtros-av-badge');
+  if (badge) {
+    badge.style.display = total ? 'inline' : 'none';
+    badge.textContent = total ? `(${total})` : '';
+  }
+  renderMiembros();
+}
+
+function limpiarFiltrosAvanzados() {
+  const panel = document.getElementById('panel-filtros-av');
+  if (panel) panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+  aplicarFiltrosAvanzados();
+}
+
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('panel-filtros-av');
+  const btn   = document.getElementById('btn-filtros-av');
+  if (!panel || !btn || panel.style.display === 'none') return;
+  if (!panel.contains(e.target) && e.target !== btn) panel.style.display = 'none';
+});
+
 // ══════════════════════════════════════════════
 //  STATS
 // ══════════════════════════════════════════════
@@ -2847,6 +2935,7 @@ async function guardarSesion() {
     await apiPost({ action: 'updateAsistenciaBatch', asistencias });
     isSaving=false; btn.disabled=false; btn.innerHTML='💾 Guardar reunión';
     if (res?.ok) toast(`✅ Guardado en Sheets (${Math.round(presIds.length/sm.length*100)}% asistencia)`,'ok',4000);
+    autoPublicarSondeo();
   }
 }
 
@@ -2861,9 +2950,28 @@ function renderMiembros() {
   const sedeNombre  = m => sedes.find(s  => s.id === m.sedeId)?.nombre  || m.congregacion || '';
 
   const f = base.filter(m => {
+    // Filtro activo/inactivo
+    const esActivo = m.activo !== false && m.activo !== 'false' && m.activo !== 'No';
+    if (curActivoFilter === 'activos'   && !esActivo) return false;
+    if (curActivoFilter === 'inactivos' &&  esActivo) return false;
     // Filtros de chip (grupo y tipo)
-    if (curGrupoFilter && m.grupoId !== curGrupoFilter && m.grupo !== curGrupoFilter) return false;
-    if (curTipoFilter  && (m.tipoAsistente || '') !== curTipoFilter) return false;
+    if (curGrupoFilter === '__sin_grupo__') {
+      if (m.grupoId || m.grupo) return false;
+    } else if (curGrupoFilter) {
+      const grpNombre = grupos.find(g => String(g.id) === String(curGrupoFilter))?.nombre || '';
+      const matchId   = String(m.grupoId) === String(curGrupoFilter);
+      const matchNom  = m.grupo && (m.grupo === curGrupoFilter || m.grupo === grpNombre);
+      if (!matchId && !matchNom) return false;
+    }
+    if (curTipoFilter  && (m.tipoAsistente || m.rol || '') !== curTipoFilter) return false;
+    // Filtros avanzados (sexo, estado civil, rol familiar) — checkboxes en menú desplegable
+    if (curFiltrosAv.sexo.length        && !curFiltrosAv.sexo.includes(m.sexo))               return false;
+    if (curFiltrosAv.estadoCivil.length && !curFiltrosAv.estadoCivil.includes(m.estadoCivil))  return false;
+    if (curFiltrosAv.rolFamiliar.length && !curFiltrosAv.rolFamiliar.includes(m.rolFamiliar))  return false;
+    if (curFiltrosAv.vaAlSeminario.length) {
+      const va = (m.vaAlSeminario === true || m.vaAlSeminario === 'Sí' || m.vaAlSeminario === 'true') ? 'Sí' : 'No';
+      if (!curFiltrosAv.vaAlSeminario.includes(va)) return false;
+    }
     // Búsqueda de texto — si no hay query pasa todo
     if (!q) return true;
     return (
@@ -2872,7 +2980,7 @@ function renderMiembros() {
       (m.email         || '').toLowerCase().includes(q) ||
       grupoNombre(m).toLowerCase().includes(q) ||
       sedeNombre(m).toLowerCase().includes(q)  ||
-      (m.tipoAsistente || '').toLowerCase().includes(q) ||
+      (m.tipoAsistente || m.rol || '').toLowerCase().includes(q) ||
       (m.direccion     || '').toLowerCase().includes(q)
     );
   });
@@ -2895,14 +3003,18 @@ function renderMiembros() {
   });
 
   const el = document.getElementById('lista-miem');
+  const countEl = document.getElementById('miem-count');
   if (!members.length) {
     el.innerHTML = '<div class="empty">👥 Sin personas. Importalos con <strong>"📥 Importar CSV"</strong>.</div>';
+    if (countEl) countEl.textContent = '';
     return;
   }
   if (!base.length) {
     el.innerHTML = '<div class="empty">👥 No hay personas en esta sede.<br>Cambiá la sede o importá miembros.</div>';
+    if (countEl) countEl.textContent = '';
     return;
   }
+  if (countEl) countEl.textContent = `· ${f.length} de ${base.length}`;
   if (!f.length) { el.innerHTML = '<div class="empty">Sin resultados para ese filtro.</div>'; return; }
 
   const sedeColor = m => sedes.find(s => s.id === m.sedeId)?.color || 'var(--blue)';
@@ -2911,7 +3023,7 @@ function renderMiembros() {
     <div class="mrow" onclick="openProfile('${m.id}',event)">
       ${avHTML(m, 44)}
       <div class="minfo">
-        <div class="mname" style="display:flex;align-items:center;gap:7px">
+        <div class="mname" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
           ${m.nombre}
           ${tipoBadge(m.tipoAsistente || m.rol)}
         </div>
@@ -3232,6 +3344,10 @@ function openProfile(id, e) {
         <div class="pf-label">💍 Estado civil</div>
         <div class="pf-val">${m.estadoCivil||'—'}</div>
       </div>
+      ${m.rolFamiliar ? `<div class="pf-item">
+        <div class="pf-label">👨‍👩‍👧 Rol familiar</div>
+        <div class="pf-val">${m.rolFamiliar}</div>
+      </div>` : ''}
       <div class="pf-item">
         <div class="pf-label">📍 Dirección</div>
         <div class="pf-val">${m.direccion||'—'}</div>
@@ -3267,18 +3383,12 @@ function openProfile(id, e) {
           const estadoIcon = {'En curso':'📘','Completado':'✅','Abandonado':'❌','Pendiente':'⏳'}[sem.estado] || '📖';
           const estadoBg   = {'En curso':'#EFF6FF','Completado':'var(--green-l)','Abandonado':'var(--red-l)','Pendiente':'var(--orange-l)'}[sem.estado] || 'var(--blue-l)';
           const estadoCol  = {'En curso':'var(--blue)','Completado':'var(--green-t)','Abandonado':'var(--red)','Pendiente':'var(--orange)'}[sem.estado] || 'var(--blue)';
-          const partes = [
-            sem.nombre || '',
-            sem.fechaInicio ? `Inicio: ${fmtDate(sem.fechaInicio)}` : '',
-            sem.fechaFin    ? `Fin: ${fmtDate(sem.fechaFin)}`       : '',
-          ].filter(Boolean).join(' · ');
           return `<div class="pf-item" style="grid-column:1/-1">
             <div class="pf-label">📖 Seminario</div>
-            <div class="pf-val" style="font-size:12px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <div class="pf-val" style="font-size:12px">
               ${sem.estado
                 ? `<span style="background:${estadoBg};color:${estadoCol};padding:2px 9px;border-radius:5px;font-weight:700">${estadoIcon} ${sem.estado}</span>`
                 : `<span style="background:var(--blue-l);color:var(--blue);padding:2px 9px;border-radius:5px;font-weight:700">✅ Va al seminario</span>`}
-              ${partes ? `<span style="color:var(--txt3)">${partes}</span>` : ''}
             </div>
           </div>`;
         })() : ''}
@@ -3397,6 +3507,46 @@ function _refreshActivoFormBtn() {
   btn.style.color       = activo ? 'var(--green-t)' : 'var(--red)';
 }
 
+function updateRolFamiliarField() {
+  const sexo    = document.getElementById('f-sexo')?.value || '';
+  const fechanac = document.getElementById('f-fechanac')?.value || '';
+  const fg      = document.getElementById('fg-rol-familiar');
+  const lbl     = document.getElementById('lbl-rol-familiar');
+  const sel     = document.getElementById('f-rol-familiar');
+  if (!fg) return;
+
+  let isMinor = false;
+  if (fechanac) {
+    const birth = new Date(fechanac + 'T00:00:00');
+    const hoy   = new Date();
+    let edad = hoy.getFullYear() - birth.getFullYear();
+    const dm = hoy.getMonth() - birth.getMonth();
+    if (dm < 0 || (dm === 0 && hoy.getDate() < birth.getDate())) edad--;
+    isMinor = edad < 18;
+  }
+
+  if (isMinor) {
+    fg.style.display = 'none';
+    if (sel) sel.value = '';
+    return;
+  }
+
+  fg.style.display = '';
+  if (lbl) {
+    if (sexo === 'Femenino')  lbl.textContent = '¿Es madre?';
+    else if (sexo === 'Masculino') lbl.textContent = '¿Es padre?';
+    else lbl.textContent = '¿Es padre/madre?';
+  }
+  if (sel) {
+    const opPadre = sel.querySelector('option[value="Padre"]');
+    const opMadre = sel.querySelector('option[value="Madre"]');
+    if (opPadre) opPadre.style.display = sexo === 'Femenino'  ? 'none' : '';
+    if (opMadre) opMadre.style.display = sexo === 'Masculino' ? 'none' : '';
+    if (sel.value === 'Padre' && sexo === 'Femenino')  sel.value = '';
+    if (sel.value === 'Madre' && sexo === 'Masculino') sel.value = '';
+  }
+}
+
 function openMemberModal(id=null) {
   editingId = id ? String(id) : null;
   currentPhoto = null;
@@ -3448,18 +3598,15 @@ function openMemberModal(id=null) {
       // Seminario
       const sem = m.seminario || {};
       set('f-va-al-seminario', (m.vaAlSeminario === true || m.vaAlSeminario === 'Sí') ? 'true' : 'false');
-      set('f-seminario-estado',      sem.estado      || '');
-      set('f-seminario-nombre',      sem.nombre      || '');
-      set('f-seminario-fecha-inicio',sem.fechaInicio || '');
-      set('f-seminario-fecha-fin',   sem.fechaFin    || '');
+      set('f-seminario-estado', sem.estado || '');
 
       // Estado espiritual
       set('f-bautizado',   m.bautizado || (m.bautismo?.estado === 'Realizado' ? 'Sí' : ''));
       set('f-baut-fecha',  m.bautismo_fecha || m.bautismo?.fecha || '');
 
       // Familia
-      set('f-estadocivil', m.estadoCivil);
-      set('f-conyuge',     m.conyugeId);
+      set('f-estadocivil',   m.estadoCivil);
+      set('f-rol-familiar',  m.rolFamiliar || '');
 
       // Ministerio
       set('f-ministerio',  m.ministerio);
@@ -3499,8 +3646,7 @@ function openMemberModal(id=null) {
     } else {
       document.getElementById('member-modal-title').textContent = 'Nueva persona';
       ['f-nombre','f-fechanac','f-sexo','f-celular','f-email','f-dir',
-       'f-ingreso','f-baut-fecha','f-estadocivil','f-conyuge','f-notas','f-comollego',
-       'f-seminario-nombre','f-seminario-fecha-inicio','f-seminario-fecha-fin']
+       'f-ingreso','f-baut-fecha','f-estadocivil','f-rol-familiar','f-notas','f-comollego']
         .forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
       ['f-tipo','f-bautizado','f-ministerio','f-activo','f-seminario-estado','f-va-al-seminario'].forEach(f => {
         const el=document.getElementById(f); if(el) el.value = f==='f-activo'?'true':'false';
@@ -3509,6 +3655,7 @@ function openMemberModal(id=null) {
       if (sedeEl && curSede) { sedeEl.value = curSede; updateGrupoSelect(); }
       _refreshActivoFormBtn();
     }
+    updateRolFamiliarField();
     document.getElementById('f-nombre').focus();
   }, 30);
 }
@@ -3562,16 +3709,13 @@ async function guardarMiembro() {
     bautismo_fecha:  get('f-baut-fecha'),
     bautismo_estado: get('f-bautizado') === 'Sí' ? 'Realizado' : get('f-bautizado'),
     estadoCivil:     get('f-estadocivil'),
-    conyugeId:       get('f-conyuge') || null,
+    rolFamiliar:     get('f-rol-familiar') || '',
     ministerio:      get('f-ministerio'),
     comoLlego:       get('f-comollego'),
     notas:           get('f-notas'),
     vaAlSeminario:   get('f-va-al-seminario') === 'true',
     seminario: {
-      estado:     get('f-seminario-estado'),
-      nombre:     get('f-seminario-nombre'),
-      fechaInicio:get('f-seminario-fecha-inicio'),
-      fechaFin:   get('f-seminario-fecha-fin'),
+      estado: get('f-seminario-estado'),
     },
     photo,
   };
@@ -4167,9 +4311,11 @@ function renderGrupoChips() {
   const sedeObj = sedes.find(s => String(s.id) === String(curSede));
   const gs = sedeObj ? grupos.filter(g => String(g.sedeId) === String(sedeObj.id)) :
              (curSede === '__todas__' ? grupos : []);
+  const sinGrupoCount = sedeMembers().filter(m => !m.grupoId && !m.grupo).length;
   const el = document.getElementById('grupo-chips');
   el.innerHTML = `<button class="chip-grupo on" onclick="setGrupoFilter('',this)">Todos</button>` +
-    gs.map(g => `<button class="chip-grupo" onclick="setGrupoFilter('${g.id}',this)">${g.nombre}</button>`).join('');
+    gs.map(g => `<button class="chip-grupo" onclick="setGrupoFilter('${g.id}',this)">${g.nombre}</button>`).join('') +
+    (sinGrupoCount ? `<button class="chip-grupo" onclick="setGrupoFilter('__sin_grupo__',this)">⚠️ Sin grupo (${sinGrupoCount})</button>` : '');
   renderTipoChips();
 }
 
@@ -4178,7 +4324,7 @@ function renderTipoChips() {
   const base = sedeMembers();
   // Tipos que realmente existen en los datos de la sede
   const tiposUsados = [...new Set(
-    base.map(m => (m.tipoAsistente||'').trim()).filter(Boolean)
+    base.map(m => (m.tipoAsistente||m.rol||'').trim()).filter(Boolean)
   )];
 
   const el = document.getElementById('tipo-chips');
@@ -4727,6 +4873,40 @@ function exportarSondeo() {
   a.download = `actividad_${curSede}_${todayKey()}.csv`;
   a.click();
   toast('✅ Lista exportada','ok');
+}
+
+async function autoPublicarSondeo() {
+  if (!SCRIPT_URL) return;
+  const ventana = 4;
+  const sm    = activeSedeMembers();
+  const todos = sm.map(m => ({ m, ...calcEstado(m.id, ventana, null, null) }));
+  todos.sort((a,b) => { const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado]; });
+  const resumen = {
+    sede:      sedes.find(s=>s.id===curSede)?.nombre || curSede,
+    fecha:     todayKey(),
+    ventana,
+    regulares: todos.filter(d=>d.estado==='regular').length,
+    alerta:    todos.filter(d=>d.estado==='alerta').length,
+    riesgo:    todos.filter(d=>d.estado==='riesgo').length,
+    critico:   todos.filter(d=>d.estado==='critico').length,
+    total:     todos.length,
+  };
+  const filas = todos.map(d => ({
+    nombre:    d.m.nombre,
+    sede:      sedes.find(s=>String(s.id)===String(d.m.sedeId))?.nombre || d.m.congregacion || '',
+    grupo:     grupos.find(g=>String(g.id)===String(d.m.grupoId))?.nombre || d.m.grupo || '',
+    tipoAsistente: d.m.tipoAsistente || d.m.rol || '',
+    estado:    ESTADO_CFG[d.estado]?.label || d.estado,
+    estadoCod: d.estado,
+    faltas:    d.faltas,
+    pct:       d.pct !== null ? d.pct : '',
+    presencias:d.presencias,
+    totalReun: d.total,
+    ultimaVez: d.ultimaVez || '',
+    celular:   String(d.m.celular || ''),
+    email:     d.m.email || '',
+  }));
+  apiPost({ action: 'saveSondeo', resumen, filas }).catch(() => {});
 }
 
 async function publicarSondeo(btn) {

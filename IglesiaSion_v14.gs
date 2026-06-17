@@ -36,7 +36,7 @@ const SH = {
 const HEADERS = {
   PERSONAS: [
     // Identidad
-    'id', 'nombre', 'fechaNac', 'sexo', 'estadoCivil', 'conyugeId',
+    'id', 'nombre', 'fechaNac', 'sexo', 'estadoCivil', 'rolFamiliar',
     // Contacto
     'celular', 'email', 'direccion',
     // Vínculo eclesiástico
@@ -46,8 +46,7 @@ const HEADERS = {
     // Ministerio
     'ministerio',
     // Seminario
-    'vaAlSeminario', 'seminario_estado', 'seminario_nombre',
-    'seminario_fecha_inicio', 'seminario_fecha_fin',
+    'vaAlSeminario', 'seminario_estado',
     // Seguimiento
     'comoLlego', 'notas',
     // Interno (no editable directamente)
@@ -194,10 +193,7 @@ function flattenPersona(raw) {
     if (f.vaAlSeminario === undefined) {
       f.vaAlSeminario = (sem.estado && sem.estado !== '') ? 'Sí' : 'No';
     }
-    f.seminario_estado       = sem.estado      || '';
-    f.seminario_nombre       = sem.nombre      || '';
-    f.seminario_fecha_inicio = sem.fechaInicio || '';
-    f.seminario_fecha_fin    = sem.fechaFin    || '';
+    f.seminario_estado = sem.estado || '';
     delete f.seminario;
   }
 
@@ -268,14 +264,9 @@ function doGet(e) {
         m.celular = String(m.celular || '');
         // vaAlSeminario: 'Sí'/'No' → boolean
         m.vaAlSeminario = m.vaAlSeminario === 'Sí' || m.vaAlSeminario === true;
-        // Reconstruir objeto seminario desde columnas planas
-        if (m['seminario_estado'] || m['seminario_nombre'] || m['seminario_fecha_inicio'] || m['seminario_fecha_fin']) {
-          m.seminario = {
-            estado:      m['seminario_estado']       || '',
-            nombre:      m['seminario_nombre']       || '',
-            fechaInicio: m['seminario_fecha_inicio'] || '',
-            fechaFin:    m['seminario_fecha_fin']    || '',
-          };
+        // Reconstruir objeto seminario desde columna plana
+        if (m['seminario_estado']) {
+          m.seminario = { estado: m['seminario_estado'] };
         }
         return m;
       });
@@ -699,7 +690,7 @@ function migrarMiembrosAPersonas() {
       fechaNac:       row[col('fechanac')]          || '',
       sexo:           row[col('sexo')]              || '',
       estadoCivil:    row[col('estadocivil')]       || '',
-      conyugeId:      '',
+      rolFamiliar:    row[col('rolfamiliar')]       || '',
       celular:        String(row[col('celular')]   || ''),
       email:          row[col('email')]             || '',
       direccion:      row[col('direccion')]          || '',
@@ -801,11 +792,8 @@ function migrarPersonasConSeminario() {
 
   // Índices de las columnas que nos interesan (1-based para getRange)
   const col = name => hdrs.indexOf(name);
-  const iVaAlSeminario       = col('vaAlSeminario');
-  const iSeminarioEstado     = col('seminario_estado');
-  const iSeminarioNombre     = col('seminario_nombre');
-  const iSeminarioFechaInicio= col('seminario_fecha_inicio');
-  const iSeminarioFechaFin   = col('seminario_fecha_fin');
+  const iVaAlSeminario   = col('vaAlSeminario');
+  const iSeminarioEstado = col('seminario_estado');
 
   if (iVaAlSeminario === -1) {
     SpreadsheetApp.getUi().alert(
