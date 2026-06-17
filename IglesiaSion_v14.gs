@@ -29,6 +29,7 @@ const SH = {
   TIPOS:      'Tipos',
   ASISTENCIA: 'Asistencia',
   SONDEO:     'Actividad',
+  AUSENTES:   'Ausentes',
 };
 
 // ── Esquema canónico de Persona ───────────────────────────────────────
@@ -58,6 +59,7 @@ const HEADERS = {
   TIPOS:      ['id','nombre','color'],
   ASISTENCIA: ['nombre','presente'],
   SONDEO:     ['nombre','sede','grupo','rol','estado','faltas','pct','presencias','totalReun','ultimaVez','celular','email'],
+  AUSENTES:   ['nombre','faltas','ultimaVez','celular'],
 };
 
 // ── Helpers generales ─────────────────────────────────────────────────
@@ -227,6 +229,146 @@ function flattenPersona(raw) {
 // Alias para retrocompatibilidad
 const flattenMember = flattenPersona;
 
+// ── Helpers hoja de Sondeo/Ausentes ───────────────────────────────────
+function getOrCreateSondeoSheet(ss, name) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+  } else {
+    sh.clearContents();
+    sh.clearFormats();
+  }
+  return sh;
+}
+
+// Dibuja el snapshot de actividad (título + conteos + tabla) en la hoja dada
+function renderSondeoSheet(sh, titulo, resumen, filas) {
+  const E = ''; // celda vacía — todas las filas DEBEN tener 12 columnas
+
+  const bloqueResumen = [
+    // fila 1: título (se mergea después)
+    [titulo, E,E,E,E,E,E,E,E,E,E,E],
+    // fila 2: conteos
+    ['✅ Regulares',  resumen.regulares||0, '⚠️ 1 falta', resumen.alerta||0, '🔴 2 faltas', resumen.riesgo||0, '💀 3+', resumen.critico||0, 'Total', resumen.total||0, E, E],
+    // fila 3: vacía
+    [E,E,E,E,E,E,E,E,E,E,E,E],
+    // fila 4: cabecera de tabla
+    ['Nombre','Sede','Grupo','Tipo asistente','Estado','Faltas consec.','% Asistencia','Presencias','Total reun.','Última vez','Celular','Email'],
+  ];
+
+  sh.getRange(1, 1, bloqueResumen.length, 12).setValues(bloqueResumen);
+
+  // Estilo título (fila 1 mergeada) — compacto
+  sh.getRange(1, 1, 1, 12).merge()
+    .setFontSize(11).setFontWeight('bold')
+    .setBackground('#1A5FB4').setFontColor('#FFFFFF')
+    .setHorizontalAlignment('center');
+
+  // Estilo conteos (fila 2)
+  sh.getRange(2, 1, 1, 12).setBackground('#EBF2FC').setFontWeight('bold').setFontSize(10);
+
+  // Estilo cabecera de tabla (fila 4)
+  sh.getRange(4, 1, 1, 12).setFontWeight('bold').setBackground('#2C3E50').setFontColor('#FFFFFF');
+
+  sh.setFrozenRows(4);
+
+  // ── Filas de datos desde fila 5 ──────────────────────────────
+  if (filas.length) {
+    const COLOR = {
+      regular:    { bg: '#EAF7F0', txt: '#1E6B47' },
+      alerta:     { bg: '#FEF9E7', txt: '#7C5C00' },
+      riesgo:     { bg: '#FEF3E7', txt: '#A0510E' },
+      critico:    { bg: '#FBEAEA', txt: '#8B1C1C' },
+      'sin-datos':{ bg: '#F5F5F5', txt: '#666666' },
+    };
+    const ESTADO_LABEL = {
+      regular:'✅ Regular', alerta:'⚠️ 1 falta',
+      riesgo:'🔴 2 faltas', critico:'💀 3+ faltas', 'sin-datos':'⬜ Sin datos',
+    };
+
+    const dataRows = filas.map(f => [
+      (f.ausenteSemana ? '🔔 ' : '') + (f.nombre || ''),
+      f.sede        || '',
+      f.grupo       || '',
+      f.tipoAsistente || f.rol || '',  // el frontend envía tipoAsistente
+      ESTADO_LABEL[f.estadoCod] || f.estado || '',
+      f.faltas      !== '' && f.faltas      !== undefined ? f.faltas      : '',
+      f.pct         !== '' && f.pct         !== undefined ? (f.pct + '%') : '—',
+      f.presencias  !== '' && f.presencias  !== undefined ? f.presencias  : '',
+      f.totalReun   !== '' && f.totalReun   !== undefined ? f.totalReun   : '',
+      f.ultimaVez   || 'Nunca',
+      f.celular     || '',
+      f.email       || '',
+    ]);
+
+    const startRow = 5;
+    sh.getRange(startRow, 1, dataRows.length, 12).setValues(dataRows);
+
+    filas.forEach((f, i) => {
+      const c = COLOR[f.estadoCod] || COLOR['sin-datos'];
+      sh.getRange(startRow + i, 1, 1, 12).setBackground(c.bg);
+      sh.getRange(startRow + i, 5).setFontWeight('bold').setFontColor(c.txt);
+      if (f.ausenteSemana) sh.getRange(startRow + i, 1).setFontWeight('bold');
+    });
+
+    sh.getRange(4, 1, dataRows.length + 1, 12)
+      .setBorder(true, true, true, true, true, true, '#CCCCCC', SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  [240, 100, 100, 100, 110, 70, 80, 80, 80, 100, 130, 180]
+    .forEach((w, i) => sh.setColumnWidth(i + 1, w));
+}
+
+// Hoja "Ausentes": versión mínima — Nombre, Faltas, Última vez, Celular,
+// coloreada por gravedad (mismo criterio que la columna Estado de Actividad).
+function renderAusentesSheet(sh, titulo, filas) {
+  const bloque = [
+    [titulo, '', '', ''],
+    ['Nombre', 'Faltas consec.', 'Última vez', 'Celular'],
+  ];
+  sh.getRange(1, 1, bloque.length, 4).setValues(bloque);
+
+  sh.getRange(1, 1, 1, 4).merge()
+    .setFontSize(11).setFontWeight('bold')
+    .setBackground('#1A5FB4').setFontColor('#FFFFFF')
+    .setHorizontalAlignment('center');
+
+  sh.getRange(2, 1, 1, 4).setFontWeight('bold').setBackground('#2C3E50').setFontColor('#FFFFFF');
+
+  sh.setFrozenRows(2);
+
+  if (filas.length) {
+    const COLOR = {
+      regular:    { bg: '#EAF7F0', txt: '#1E6B47' },
+      alerta:     { bg: '#FEF9E7', txt: '#7C5C00' },
+      riesgo:     { bg: '#FEF3E7', txt: '#A0510E' },
+      critico:    { bg: '#FBEAEA', txt: '#8B1C1C' },
+      'sin-datos':{ bg: '#F5F5F5', txt: '#666666' },
+    };
+
+    const dataRows = filas.map(f => [
+      f.nombre    || '',
+      f.faltas !== '' && f.faltas !== undefined ? f.faltas : '',
+      f.ultimaVez || 'Nunca',
+      f.celular   || '',
+    ]);
+
+    const startRow = 3;
+    sh.getRange(startRow, 1, dataRows.length, 4).setValues(dataRows);
+
+    filas.forEach((f, i) => {
+      const c = COLOR[f.estadoCod] || COLOR['sin-datos'];
+      sh.getRange(startRow + i, 1, 1, 4).setBackground(c.bg);
+      sh.getRange(startRow + i, 2).setFontWeight('bold').setFontColor(c.txt);
+    });
+
+    sh.getRange(2, 1, dataRows.length + 1, 4)
+      .setBorder(true, true, true, true, true, true, '#CCCCCC', SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  [240, 110, 130, 150].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+}
+
 // ── Helper hoja Asistencia ────────────────────────────────────────────
 function getAsistenciaSheet() {
   const ss = SpreadsheetApp.openById(SS_ID);
@@ -395,104 +537,23 @@ function doPost(e) {
       const ss      = SpreadsheetApp.openById(SS_ID);
       const filas   = body.filas   || [];
       const resumen = body.resumen || {};
-      const E = ''; // celda vacía — todas las filas DEBEN tener 12 columnas
-
-      let sh = ss.getSheetByName(SH.SONDEO);
-      if (!sh) {
-        sh = ss.insertSheet(SH.SONDEO);
-      } else {
-        sh.clearContents();
-        sh.clearFormats();
-      }
 
       const fechaLeg = resumen.fecha
         ? Utilities.formatDate(new Date(resumen.fecha + 'T12:00:00'), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
         : '';
 
-      // Todas las filas deben tener exactamente 12 columnas
-      const titulo = 'ACTIVIDAD — ' + (resumen.sede || '') + ' — ' + fechaLeg;
-      const bloqueResumen = [
-        // fila 1: título (se mergea después)
-        [titulo,          E,              E,           E,              E,           E,           E,E,E,E,E,E],
-        // fila 2: metadata
-        ['Sede',          resumen.sede||'','Fecha',    fechaLeg,       'Ventana',   String(resumen.ventana||'')+' reuniones', E,E,E,E,E,E],
-        // fila 3: vacía
-        [E,E,E,E,E,E,E,E,E,E,E,E],
-        // fila 4: conteos
-        ['✅ Regulares',  resumen.regulares||0, '⚠️ 1 falta', resumen.alerta||0, '🔴 2 faltas', resumen.riesgo||0, '💀 3+', resumen.critico||0, 'Total', resumen.total||0, E, E],
-        // fila 5: vacía
-        [E,E,E,E,E,E,E,E,E,E,E,E],
-        // fila 6: vacía
-        [E,E,E,E,E,E,E,E,E,E,E,E],
-        // fila 7: cabecera de tabla
-        ['Nombre','Sede','Grupo','Tipo asistente','Estado','Faltas consec.','% Asistencia','Presencias','Total reun.','Última vez','Celular','Email'],
-      ];
+      // Hoja "Actividad": snapshot completo de todos los miembros
+      const shAct = getOrCreateSondeoSheet(ss, SH.SONDEO);
+      const tituloAct = (resumen.sede || '') + ' · ' + fechaLeg + ' · Ventana: ' + String(resumen.ventana||'') + ' reuniones';
+      renderSondeoSheet(shAct, tituloAct, resumen, filas);
 
-      sh.getRange(1, 1, bloqueResumen.length, 12).setValues(bloqueResumen);
+      // Hoja "Ausentes": solo quienes faltaron a la última reunión — versión mínima
+      const filasAusentes = filas.filter(f => f.ausenteSemana);
+      const shAus = getOrCreateSondeoSheet(ss, SH.AUSENTES);
+      const tituloAus = '🔔 Ausentes última reunión — ' + (resumen.sede || '') + ' · ' + fechaLeg + ' — ' + filasAusentes.length + ' personas';
+      renderAusentesSheet(shAus, tituloAus, filasAusentes);
 
-      // Estilo título (fila 1 mergeada)
-      sh.getRange(1, 1, 1, 12).merge()
-        .setFontSize(14).setFontWeight('bold')
-        .setBackground('#1A5FB4').setFontColor('#FFFFFF')
-        .setHorizontalAlignment('center');
-
-      // Estilo metadata (fila 2)
-      sh.getRange(2, 1, 1, 12).setBackground('#F0F2F5').setFontColor('#444444').setFontSize(10);
-
-      // Estilo conteos (fila 4)
-      sh.getRange(4, 1, 1, 12).setBackground('#EBF2FC').setFontWeight('bold');
-
-      // Estilo cabecera de tabla (fila 7)
-      sh.getRange(7, 1, 1, 12).setFontWeight('bold').setBackground('#2C3E50').setFontColor('#FFFFFF');
-
-      sh.setFrozenRows(7);
-
-      // ── Filas de datos desde fila 8 ──────────────────────────────
-      if (filas.length) {
-        const COLOR = {
-          regular:    { bg: '#EAF7F0', txt: '#1E6B47' },
-          alerta:     { bg: '#FEF9E7', txt: '#7C5C00' },
-          riesgo:     { bg: '#FEF3E7', txt: '#A0510E' },
-          critico:    { bg: '#FBEAEA', txt: '#8B1C1C' },
-          'sin-datos':{ bg: '#F5F5F5', txt: '#666666' },
-        };
-        const ESTADO_LABEL = {
-          regular:'✅ Regular', alerta:'⚠️ 1 falta',
-          riesgo:'🔴 2 faltas', critico:'💀 3+ faltas', 'sin-datos':'⬜ Sin datos',
-        };
-
-        const dataRows = filas.map(f => [
-          f.nombre      || '',
-          f.sede        || '',
-          f.grupo       || '',
-          f.tipoAsistente || f.rol || '',  // el frontend envía tipoAsistente
-          ESTADO_LABEL[f.estadoCod] || f.estado || '',
-          f.faltas      !== '' && f.faltas      !== undefined ? f.faltas      : '',
-          f.pct         !== '' && f.pct         !== undefined ? (f.pct + '%') : '—',
-          f.presencias  !== '' && f.presencias  !== undefined ? f.presencias  : '',
-          f.totalReun   !== '' && f.totalReun   !== undefined ? f.totalReun   : '',
-          f.ultimaVez   || 'Nunca',
-          f.celular     || '',
-          f.email       || '',
-        ]);
-
-        const startRow = 8;
-        sh.getRange(startRow, 1, dataRows.length, 12).setValues(dataRows);
-
-        filas.forEach((f, i) => {
-          const c = COLOR[f.estadoCod] || COLOR['sin-datos'];
-          sh.getRange(startRow + i, 1, 1, 12).setBackground(c.bg);
-          sh.getRange(startRow + i, 5).setFontWeight('bold').setFontColor(c.txt);
-        });
-
-        sh.getRange(7, 1, dataRows.length + 1, 12)
-          .setBorder(true, true, true, true, true, true, '#CCCCCC', SpreadsheetApp.BorderStyle.SOLID);
-      }
-
-      [240, 100, 100, 100, 110, 70, 80, 80, 80, 100, 130, 180]
-        .forEach((w, i) => sh.setColumnWidth(i + 1, w));
-
-      return jsonOk({ saved: filas.length, sheet: SH.SONDEO });
+      return jsonOk({ saved: filas.length, ausentes: filasAusentes.length, sheets: [SH.SONDEO, SH.AUSENTES] });
     }
 
     if (action === 'uploadPhoto') {
@@ -652,6 +713,7 @@ function setup() {
     { name: SH.TIPOS,      headers: HEADERS.TIPOS      },
     { name: SH.ASISTENCIA, headers: HEADERS.ASISTENCIA },
     { name: SH.SONDEO,     headers: HEADERS.SONDEO     },
+    { name: SH.AUSENTES,   headers: HEADERS.AUSENTES   },
     // TiposReunion no está en SH{} ni en HEADERS{} — crearla igual
     { name: 'TiposReunion', headers: ['id','label','icon','diaSemana'] },
   ];

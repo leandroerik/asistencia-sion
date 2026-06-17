@@ -1452,6 +1452,13 @@ function fmtDate(d) {
   if (isNaN(fecha.getTime())) return String(d) || '—';
   return fecha.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 }
+// Recorta cualquier valor de fecha (string YYYY-MM-DD o ISO datetime con hora) a solo dd/mm/yyyy
+function soloFecha(v) {
+  if (!v) return '';
+  const s = String(v).slice(0, 10); // descarta la parte de hora si la tiene (T03:00:00.000Z)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+}
 function todayKey() { return new Date().toISOString().slice(0,10); }
 function todayStr() { return fmtDate(todayKey()); }
 
@@ -4875,14 +4882,36 @@ function exportarSondeo() {
   toast('✅ Lista exportada','ok');
 }
 
+// IDs presentes en la última reunión guardada para la sede activa (cualquier tipo)
+function getPresentesUltimaReunion() {
+  const sedeNombre = (sedes.find(x => String(x.id) === String(curSede))?.nombre || curSede || '').toLowerCase();
+  const enSede = s => curSede === '__todas__' ||
+    String(s.sedeId||'') === String(curSede) ||
+    (s.sede||'').toLowerCase() === sedeNombre;
+  const sesionFecha = s => {
+    const raw = s.fecha || (s.id||'').match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || '';
+    const m = String(raw).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    return m ? `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}` : '';
+  };
+  const ultima = sessions
+    .filter(s => sesionFecha(s) && enSede(s))
+    .sort((a,b) => sesionFecha(b).localeCompare(sesionFecha(a)))[0];
+  return ultima ? new Set((ultima.presentes||[]).map(String)) : null;
+}
+
 async function autoPublicarSondeo() {
   if (!SCRIPT_URL) return;
   const ventana = 4;
   const sm    = activeSedeMembers();
   const todos = sm.map(m => ({ m, ...calcEstado(m.id, ventana, null, null) }));
-  todos.sort((a,b) => { const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado]; });
+  const presUltima = getPresentesUltimaReunion();
+  todos.forEach(d => { d.ausenteSemana = presUltima ? !presUltima.has(String(d.m.id)) : false; });
+  todos.sort((a,b) => {
+    if (a.ausenteSemana !== b.ausenteSemana) return a.ausenteSemana ? -1 : 1;
+    const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado];
+  });
   const resumen = {
-    sede:      sedes.find(s=>s.id===curSede)?.nombre || curSede,
+    sede:      sedes.find(s=>String(s.id)===String(curSede))?.nombre || curSede,
     fecha:     todayKey(),
     ventana,
     regulares: todos.filter(d=>d.estado==='regular').length,
@@ -4898,15 +4927,25 @@ async function autoPublicarSondeo() {
     tipoAsistente: d.m.tipoAsistente || d.m.rol || '',
     estado:    ESTADO_CFG[d.estado]?.label || d.estado,
     estadoCod: d.estado,
+    ausenteSemana: !!d.ausenteSemana,
     faltas:    d.faltas,
     pct:       d.pct !== null ? d.pct : '',
     presencias:d.presencias,
     totalReun: d.total,
-    ultimaVez: d.ultimaVez || '',
+    ultimaVez: soloFecha(d.ultimaVez),
     celular:   String(d.m.celular || ''),
     email:     d.m.email || '',
   }));
-  apiPost({ action: 'saveSondeo', resumen, filas }).catch(() => {});
+  try {
+    const res = await apiPost({ action: 'saveSondeo', resumen, filas });
+    if (res?.ok) {
+      toast(`📊 Actividad y Ausentes actualizados (${res.ausentes ?? 0} ausentes)`, 'ok', 3500);
+    } else {
+      toast('⚠️ No se pudo publicar el sondeo: ' + (res?.error || 'desconocido'), 'err', 6000);
+    }
+  } catch(e) {
+    toast('⚠️ Error de conexión al publicar el sondeo', 'err', 6000);
+  }
 }
 
 async function publicarSondeo(btn) {
@@ -4923,16 +4962,21 @@ async function publicarSondeo(btn) {
     fechaDesde ? new Date(fechaDesde+'T00:00:00') : null,
     fechaHasta ? new Date(fechaHasta+'T23:59:59') : null
   )}));
+  const presUltima = getPresentesUltimaReunion();
+  todos.forEach(d => { d.ausenteSemana = presUltima ? !presUltima.has(String(d.m.id)) : false; });
 
   // Respetar los filtros activos
   let datos = todos;
   if (filtroEst) datos = datos.filter(d => d.estado === filtroEst);
   if (filtroGrp) datos = datos.filter(d => String(d.m.grupoId||'') === String(filtroGrp) || d.m.grupo === filtroGrp);
-  datos.sort((a,b) => { const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado]; });
+  datos.sort((a,b) => {
+    if (a.ausenteSemana !== b.ausenteSemana) return a.ausenteSemana ? -1 : 1;
+    const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado];
+  });
 
   // Estadísticas resumen
   const resumen = {
-    sede:      sedes.find(s=>s.id===curSede)?.nombre || curSede,
+    sede:      sedes.find(s=>String(s.id)===String(curSede))?.nombre || curSede,
     fecha:     todayKey(),
     ventana,
     regulares: todos.filter(d=>d.estado==='regular').length,
@@ -4949,11 +4993,12 @@ async function publicarSondeo(btn) {
     tipoAsistente: d.m.tipoAsistente || d.m.rol || '',
     estado:    ESTADO_CFG[d.estado]?.label || d.estado,
     estadoCod: d.estado,
+    ausenteSemana: !!d.ausenteSemana,
     faltas:    d.faltas,
     pct:       d.pct !== null ? d.pct : '',
     presencias:d.presencias,
     totalReun: d.total,
-    ultimaVez: d.ultimaVez || '',
+    ultimaVez: soloFecha(d.ultimaVez),
     celular:   String(d.m.celular || ''),
     email:     d.m.email || '',
   }));
