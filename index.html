@@ -2942,7 +2942,7 @@ async function guardarSesion() {
     await apiPost({ action: 'updateAsistenciaBatch', asistencias });
     isSaving=false; btn.disabled=false; btn.innerHTML='💾 Guardar reunión';
     if (res?.ok) toast(`✅ Guardado en Sheets (${Math.round(presIds.length/sm.length*100)}% asistencia)`,'ok',4000);
-    autoPublicarSondeo();
+    autoPublicarSondeo(new Set(presIds.map(String)));
   }
 }
 
@@ -4899,12 +4899,12 @@ function getPresentesUltimaReunion() {
   return ultima ? new Set((ultima.presentes||[]).map(String)) : null;
 }
 
-async function autoPublicarSondeo() {
+async function autoPublicarSondeo(presUltimaOverride = null) {
   if (!SCRIPT_URL) return;
   const ventana = 4;
   const sm    = activeSedeMembers();
   const todos = sm.map(m => ({ m, ...calcEstado(m.id, ventana, null, null) }));
-  const presUltima = getPresentesUltimaReunion();
+  const presUltima = presUltimaOverride !== null ? presUltimaOverride : getPresentesUltimaReunion();
   todos.forEach(d => { d.ausenteSemana = presUltima ? !presUltima.has(String(d.m.id)) : false; });
   todos.sort((a,b) => {
     if (a.ausenteSemana !== b.ausenteSemana) return a.ausenteSemana ? -1 : 1;
