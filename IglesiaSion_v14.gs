@@ -556,6 +556,20 @@ function doPost(e) {
       return jsonOk({ saved: filas.length, ausentes: filasAusentes.length, sheets: [SH.SONDEO, SH.AUSENTES] });
     }
 
+    // ── Solo hoja Ausentes (llamado automático al guardar reunión) ───
+    if (action === 'saveAusentes') {
+      const ss      = SpreadsheetApp.openById(SS_ID);
+      const filas   = body.filas   || [];
+      const resumen = body.resumen || {};
+      const fechaLeg = resumen.fecha
+        ? Utilities.formatDate(new Date(resumen.fecha + 'T12:00:00'), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy')
+        : '';
+      const shAus = getOrCreateSondeoSheet(ss, SH.AUSENTES);
+      const tituloAus = '🔔 Ausentes última reunión — ' + (resumen.sede || '') + ' · ' + fechaLeg + ' — ' + filas.length + ' personas';
+      renderAusentesSheet(shAus, tituloAus, filas);
+      return jsonOk({ ausentes: filas.length });
+    }
+
     if (action === 'uploadPhoto') {
       try {
         const b64data = body.base64;

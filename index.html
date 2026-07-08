@@ -2942,7 +2942,7 @@ async function guardarSesion() {
     await apiPost({ action: 'updateAsistenciaBatch', asistencias });
     isSaving=false; btn.disabled=false; btn.innerHTML='💾 Guardar reunión';
     if (res?.ok) toast(`✅ Guardado en Sheets (${Math.round(presIds.length/sm.length*100)}% asistencia)`,'ok',4000);
-    autoPublicarSondeo(new Set(presIds.map(String)));
+    autoPublicarSondeo(new Set(presIds.map(String)), fecha);
   }
 }
 
@@ -4899,7 +4899,7 @@ function getPresentesUltimaReunion() {
   return ultima ? new Set((ultima.presentes||[]).map(String)) : null;
 }
 
-async function autoPublicarSondeo(presUltimaOverride = null) {
+async function autoPublicarSondeo(presUltimaOverride = null, fechaReunion = null) {
   if (!SCRIPT_URL) return;
   const ventana = 4;
   const sm    = activeSedeMembers();
@@ -4911,40 +4911,28 @@ async function autoPublicarSondeo(presUltimaOverride = null) {
     const o={critico:0,riesgo:1,alerta:2,'sin-datos':3,regular:4}; return o[a.estado]-o[b.estado];
   });
   const resumen = {
-    sede:      sedes.find(s=>String(s.id)===String(curSede))?.nombre || curSede,
-    fecha:     todayKey(),
-    ventana,
-    regulares: todos.filter(d=>d.estado==='regular').length,
-    alerta:    todos.filter(d=>d.estado==='alerta').length,
-    riesgo:    todos.filter(d=>d.estado==='riesgo').length,
-    critico:   todos.filter(d=>d.estado==='critico').length,
-    total:     todos.length,
+    sede:  sedes.find(s=>String(s.id)===String(curSede))?.nombre || curSede,
+    fecha: fechaReunion || todayKey(),
   };
-  const filas = todos.map(d => ({
-    nombre:    d.m.nombre,
-    sede:      sedes.find(s=>String(s.id)===String(d.m.sedeId))?.nombre || d.m.congregacion || '',
-    grupo:     grupos.find(g=>String(g.id)===String(d.m.grupoId))?.nombre || d.m.grupo || '',
-    tipoAsistente: d.m.tipoAsistente || d.m.rol || '',
-    estado:    ESTADO_CFG[d.estado]?.label || d.estado,
-    estadoCod: d.estado,
-    ausenteSemana: !!d.ausenteSemana,
-    faltas:    d.faltas,
-    pct:       d.pct !== null ? d.pct : '',
-    presencias:d.presencias,
-    totalReun: d.total,
-    ultimaVez: soloFecha(d.ultimaVez),
-    celular:   String(d.m.celular || ''),
-    email:     d.m.email || '',
-  }));
+  // Solo enviamos los ausentes (payload mínimo)
+  const filasAusentes = todos
+    .filter(d => d.ausenteSemana)
+    .map(d => ({
+      nombre:    d.m.nombre,
+      estadoCod: d.estado,
+      faltas:    d.faltas,
+      ultimaVez: soloFecha(d.ultimaVez),
+      celular:   String(d.m.celular || ''),
+    }));
   try {
-    const res = await apiPost({ action: 'saveSondeo', resumen, filas });
+    const res = await apiPost({ action: 'saveAusentes', resumen, filas: filasAusentes });
     if (res?.ok) {
-      toast(`📊 Actividad y Ausentes actualizados (${res.ausentes ?? 0} ausentes)`, 'ok', 3500);
+      toast(`🔔 Ausentes actualizados (${res.ausentes ?? 0} personas)`, 'ok', 3500);
     } else {
-      toast('⚠️ No se pudo publicar el sondeo: ' + (res?.error || 'desconocido'), 'err', 6000);
+      toast('⚠️ No se pudo guardar ausentes: ' + (res?.error || 'desconocido'), 'err', 6000);
     }
   } catch(e) {
-    toast('⚠️ Error de conexión al publicar el sondeo', 'err', 6000);
+    toast('⚠️ Error de conexión al guardar ausentes', 'err', 6000);
   }
 }
 
